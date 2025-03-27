@@ -1,0 +1,59 @@
+steps:
+  # 1. Build the Docker image (Secrets Temporarily Removed for Testing Size Limit)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--tag'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA' # Tag with commit SHA
+      - '--tag'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest' # Also tag with latest
+      # --- Secret build-args temporarily removed ---
+      - '--platform' # Specify platform for Cloud Run compatibility
+      - 'linux/amd64'
+      - '.' # Build context is the current directory
+    # --- secretEnv temporarily removed ---
+
+  # 2. Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app' # Push all tags associated with this image name
+
+  # 3. Deploy the image to Cloud Run
+  - name: 'gcr.io/google-appengine/exec-wrapper' # Uses gcloud command via wrapper
+    args:
+      - '-i' # Image argument for the wrapper
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+      - '--service'
+      - 'skillsculpt-app' # Your Cloud Run service name
+      - '--region'
+      - 'us-west2' # Your Cloud Run service region
+      - '--platform'
+      - 'managed' # Specify managed platform
+      - '--project'
+      - 'car-magic-454906'
+      # --- IMPORTANT ---
+      # Does your service need to be publicly accessible? If YES, uncomment the next line:
+      # - '--allow-unauthenticated'
+      # If NO (it requires authentication), leave it commented out or remove it.
+    entrypoint: 'gcloud' # Command to run inside the wrapper
+    args: # Arguments for the gcloud command (entrypoint)
+      - 'run'
+      - 'deploy'
+
+# Define the images to be pushed after the build completes successfully
+images:
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+
+# --- availableSecrets temporarily removed for testing size limit ---
+
+# Define substitution variables (already filled with your known values)
+substitutions:
+  _SERVICE_NAME: skillsculpt-app
+  _CLOUD_RUN_REGION: us-west2
+  _ARTIFACT_REGISTRY_REGION: us-west2
+  _ARTIFACT_REPO_NAME: skillsculpt-repo
+
+# Optional: Set timeout for the build
+timeout: '1200s' # 20 minutes
