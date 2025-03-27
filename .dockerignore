@@ -1,0 +1,32 @@
+# Git files
+.git
+.gitignore
+
+# Node modules
+node_modules
+
+# Next.js build output (we build it inside the container)
+.next
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Env files (sensitive info should be injected at runtime)
+.env*
+!.env.example
+!.env.production
+
+# Log files
+*.log
+
+# Editor config
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test reports (if any)
+coverage 
