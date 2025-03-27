@@ -7,30 +7,24 @@ steps:
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA' # Tag with commit SHA
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest' # Also tag with latest
-      # --- CORRECTED Build Arguments ---
+      # --- CORRECTED Build Arguments using $$ syntax ---
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY=${FIREBASE_API_KEY}' # Use env var from secretEnv
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$FIREBASE_API_KEY' # Use $$VAR_NAME syntax from availableSecrets
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}' # Use env var from secretEnv
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$FIREBASE_AUTH_DOMAIN' # Use $$VAR_NAME syntax
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}' # Use env var from secretEnv
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$FIREBASE_PROJECT_ID' # Use $$VAR_NAME syntax
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}' # Use env var from secretEnv
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$FIREBASE_STORAGE_BUCKET' # Use $$VAR_NAME syntax
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}' # Use env var from secretEnv
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$FIREBASE_MESSAGING_SENDER_ID' # Use $$VAR_NAME syntax
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_APP_ID=${FIREBASE_APP_ID}' # Use env var from secretEnv
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$FIREBASE_APP_ID' # Use $$VAR_NAME syntax
       # --- End Corrected Build Arguments ---
       - '--platform' # Specify platform for Cloud Run compatibility
       - 'linux/amd64'
       - '.' # Build context is the current directory
-    secretEnv: # Environment variables populated from Secret Manager, available ONLY in this step
-      - 'FIREBASE_API_KEY'
-      - 'FIREBASE_AUTH_DOMAIN'
-      - 'FIREBASE_PROJECT_ID'
-      - 'FIREBASE_STORAGE_BUCKET'
-      - 'FIREBASE_MESSAGING_SENDER_ID'
-      - 'FIREBASE_APP_ID'
+    # secretEnv block is removed as $$ accesses availableSecrets directly in args
 
   # 2. Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -65,21 +59,21 @@ images:
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# Define which secrets Cloud Build needs access to using the names you provided
+# Define which secrets Cloud Build needs access to (this section remains the same)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      env: 'FIREBASE_API_KEY'
+      env: 'FIREBASE_API_KEY' # Used by $$FIREBASE_API_KEY in args
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
-      env: 'FIREBASE_AUTH_DOMAIN'
+      env: 'FIREBASE_AUTH_DOMAIN' # Used by $$FIREBASE_AUTH_DOMAIN
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
-      env: 'FIREBASE_PROJECT_ID'
+      env: 'FIREBASE_PROJECT_ID' # Used by $$FIREBASE_PROJECT_ID
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
-      env: 'FIREBASE_STORAGE_BUCKET'
+      env: 'FIREBASE_STORAGE_BUCKET' # Used by $$FIREBASE_STORAGE_BUCKET
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
-      env: 'FIREBASE_MESSAGING_SENDER_ID'
+      env: 'FIREBASE_MESSAGING_SENDER_ID' # Used by $$FIREBASE_MESSAGING_SENDER_ID
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
-      env: 'FIREBASE_APP_ID'
+      env: 'FIREBASE_APP_ID' # Used by $$FIREBASE_APP_ID
 
 # Define substitution variables (already filled with your known values)
 substitutions:
