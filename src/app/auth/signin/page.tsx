@@ -2,8 +2,9 @@
 
 import dynamic from 'next/dynamic';
 
-// Import path './SignInForm' should be correct as SignInForm.tsx is in the same directory
-const SignInForm = dynamic(() => import('./SignInForm'), {
+// Use path alias assuming '@/' points to 'src/' in tsconfig.json
+// This imports SignInForm.tsx from the current 'signin' directory using the alias
+const SignInForm = dynamic(() => import('@/app/auth/signin/SignInForm'), {
   ssr: false
 });
 
