@@ -4,27 +4,24 @@ steps:
     args:
       - 'build'
       - '--tag'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA' # Tag with commit SHA
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
       - '--tag'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest' # Also tag with latest
-      # --- Build Arguments using $$ syntax ---
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$FIREBASE_API_KEY' # Use $$VAR_NAME from availableSecrets
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$FIREBASE_API_KEY'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$FIREBASE_AUTH_DOMAIN' # Use $$VAR_NAME
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$FIREBASE_AUTH_DOMAIN'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$FIREBASE_PROJECT_ID' # Use $$VAR_NAME
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$FIREBASE_PROJECT_ID'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$FIREBASE_STORAGE_BUCKET' # Use $$VAR_NAME
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$FIREBASE_STORAGE_BUCKET'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$FIREBASE_MESSAGING_SENDER_ID' # Use $$VAR_NAME
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$FIREBASE_MESSAGING_SENDER_ID'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$FIREBASE_APP_ID' # Use $$VAR_NAME
-      # --- End Build Arguments ---
-      - '--platform' # Specify platform for Cloud Run compatibility
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$FIREBASE_APP_ID'
+      - '--platform'
       - 'linux/amd64'
-      - '.' # Build context is the current directory
-    # --- ADD secretEnv BACK IN to satisfy validator ---
+      - '.'
     secretEnv:
       - 'FIREBASE_API_KEY'
       - 'FIREBASE_AUTH_DOMAIN'
@@ -34,31 +31,28 @@ steps:
       - 'FIREBASE_APP_ID'
 
   # 2. Push the Docker image to Artifact Registry
-  # ... (rest of push step is the same)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
 
-  # 3. Deploy the image to Cloud Run
-  # ... (rest of deploy step is the same)
-  - name: 'gcr.io/google-appengine/exec-wrapper'
+  # 3. Deploy the image to Cloud Run using gcloud builder  <- CORRECTED STEP
+  - name: 'gcr.io/cloud-builders/gcloud'
     args:
-      - '-i'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
-      - '--service'
-      - 'skillsculpt-app'
+      - 'run'
+      - 'deploy'
+      - 'skillsculpt-app' # Service name
+      - '--image'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA' # Image to deploy
       - '--region'
-      - 'us-west2'
+      - 'us-west2' # Service region
       - '--platform'
       - 'managed'
       - '--project'
       - 'car-magic-454906'
-      # - '--allow-unauthenticated' # Uncomment if needed
-    entrypoint: 'gcloud'
-    args:
-      - 'run'
-      - 'deploy'
+      # --- IMPORTANT ---
+      # Uncomment the next line if your service should be publicly accessible
+      # - '--allow-unauthenticated'
 
 # images section remains the same
 images:
@@ -83,10 +77,10 @@ availableSecrets:
 
 # substitutions section remains the same
 substitutions:
-  _SERVICE_NAME: skillsculpt-app
-  _CLOUD_RUN_REGION: us-west2
-  _ARTIFACT_REGISTRY_REGION: us-west2
-  _ARTIFACT_REPO_NAME: skillsculpt-repo
+  _SERVICE_NAME: skillsculpt-app # Note: This is defined but not directly used now
+  _CLOUD_RUN_REGION: us-west2 # Note: This is defined but not directly used now
+  _ARTIFACT_REGISTRY_REGION: us-west2 # Note: This is defined but not directly used now
+  _ARTIFACT_REPO_NAME: skillsculpt-repo # Note: This is defined but not directly used now
 
 # timeout section remains the same
 timeout: '1200s' # 20 minutes
