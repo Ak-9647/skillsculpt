@@ -7,18 +7,20 @@ steps:
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA' # Tag with commit SHA
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest' # Also tag with latest
+      # --- CORRECTED Build Arguments ---
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY=${_FIREBASE_API_KEY}' # Pass secret as build arg
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=${FIREBASE_API_KEY}' # Use env var from secretEnv
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}' # Use env var from secretEnv
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID}'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}' # Use env var from secretEnv
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_FIREBASE_STORAGE_BUCKET}'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}' # Use env var from secretEnv
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_FIREBASE_MESSAGING_SENDER_ID}'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}' # Use env var from secretEnv
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_APP_ID=${_FIREBASE_APP_ID}'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=${FIREBASE_APP_ID}' # Use env var from secretEnv
+      # --- End Corrected Build Arguments ---
       - '--platform' # Specify platform for Cloud Run compatibility
       - 'linux/amd64'
       - '.' # Build context is the current directory
