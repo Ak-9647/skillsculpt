@@ -1,5 +1,5 @@
 steps:
-  # 1. Build the Docker image (Secrets Temporarily Removed for Testing Size Limit)
+  # 1. Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -7,11 +7,28 @@ steps:
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA' # Tag with commit SHA
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest' # Also tag with latest
-      # --- Secret build-args temporarily removed ---
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=${_FIREBASE_API_KEY}' # Pass secret as build arg
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_FIREBASE_STORAGE_BUCKET}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_FIREBASE_MESSAGING_SENDER_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=${_FIREBASE_APP_ID}'
       - '--platform' # Specify platform for Cloud Run compatibility
       - 'linux/amd64'
       - '.' # Build context is the current directory
-    # --- secretEnv temporarily removed ---
+    secretEnv: # Environment variables populated from Secret Manager, available ONLY in this step
+      - 'FIREBASE_API_KEY'
+      - 'FIREBASE_AUTH_DOMAIN'
+      - 'FIREBASE_PROJECT_ID'
+      - 'FIREBASE_STORAGE_BUCKET'
+      - 'FIREBASE_MESSAGING_SENDER_ID'
+      - 'FIREBASE_APP_ID'
 
   # 2. Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -46,7 +63,21 @@ images:
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# --- availableSecrets temporarily removed for testing size limit ---
+# Define which secrets Cloud Build needs access to using the names you provided
+availableSecrets:
+  secretManager:
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
+      env: 'FIREBASE_API_KEY'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
+      env: 'FIREBASE_AUTH_DOMAIN'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
+      env: 'FIREBASE_PROJECT_ID'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
+      env: 'FIREBASE_STORAGE_BUCKET'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
+      env: 'FIREBASE_MESSAGING_SENDER_ID'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
+      env: 'FIREBASE_APP_ID'
 
 # Define substitution variables (already filled with your known values)
 substitutions:
@@ -57,3 +88,7 @@ substitutions:
 
 # Optional: Set timeout for the build
 timeout: '1200s' # 20 minutes
+
+# Specify logging option required when using a custom/specified service account
+options:
+  logging: CLOUD_LOGGING_ONLY
