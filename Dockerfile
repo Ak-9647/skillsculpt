@@ -17,7 +17,7 @@
     # ---- Builder ----
     FROM base AS builder
     WORKDIR /app # Explicitly set WORKDIR here too
-    # ARG declarations still needed by cloudbuild.yaml even if not used directly in ENV below for this test
+    # Pass build arguments received from cloudbuild.yaml
     ARG NEXT_PUBLIC_FIREBASE_API_KEY
     ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
     ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -25,23 +25,21 @@
     ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     ARG NEXT_PUBLIC_FIREBASE_APP_ID
     
-    # --- TEMPORARILY HARDCODE ENV VARS FOR PARSING TEST ---
-    # Use simple strings instead of trying to substitute from ARGs
-    ENV NEXT_PUBLIC_FIREBASE_API_KEY="DUMMY_API_KEY"
-    ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="DUMMY_AUTH_DOMAIN"
-    ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID="DUMMY_PROJECT_ID"
-    ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="DUMMY_STORAGE_BUCKET"
-    ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="DUMMY_SENDER_ID"
-    ENV NEXT_PUBLIC_FIREBASE_APP_ID="DUMMY_APP_ID"
-    
     COPY --from=deps /app/node_modules ./node_modules
     COPY . .
     
-    # Optional Debug: Print environment variables (will show DUMMY values)
+    # Debug: Print environment variables (Optional - can be removed later)
     # RUN printenv | grep NEXT_PUBLIC_FIREBASE || true
     
-    # Next.js build command (uses the hardcoded ENV vars above)
+    # Set ENV vars explicitly only for the build command, using ARGs
     RUN \
+      NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY \
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID \
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
+      NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID \
+      # --- Run the actual build command --- (Ensure NO comment is between the \ above and the 'if' below)
       if [ -f yarn.lock ]; then yarn build; \
       elif [ -f package-lock.json ]; then npm run build; \
       elif [ -f pnpm-lock.yaml ]; then pnpm build; \
