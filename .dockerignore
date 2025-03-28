@@ -9,13 +9,14 @@ node_modules
 .next
 
 # Docker files
-# Dockerfile <-- Line removed
+Dockerfile
 .dockerignore
 
-# Env files (sensitive info should be injected at runtime)
+# Env files (sensitive info should be injected at build/runtime)
 .env*
-!.env.example
-!.env.production
+!.env.example # Allow example env file
+# Ensure .env.production is ignored by COPY . .
+.env.production
 
 # Log files
 *.log

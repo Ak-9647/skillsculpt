@@ -4,26 +4,17 @@ steps:
     id: 'Build'
     args:
       - 'build'
-      - '--no-cache' # Force rebuild to hopefully fix COPY node_modules issue
+      # Consider removing --no-cache later once things are stable
+      - '--no-cache'
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$FIREBASE_API_KEY'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$FIREBASE_AUTH_DOMAIN'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$FIREBASE_PROJECT_ID'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$FIREBASE_STORAGE_BUCKET'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$FIREBASE_MESSAGING_SENDER_ID'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$FIREBASE_APP_ID'
+      # --- ALL --build-arg lines REMOVED ---
       - '--platform'
       - 'linux/amd64'
       - '.'
+    # This section is now used by the Dockerfile RUN step to create .env.production
     secretEnv:
       - 'FIREBASE_API_KEY'
       - 'FIREBASE_AUTH_DOMAIN'
@@ -54,6 +45,7 @@ steps:
       - 'managed'
       - '--project'
       - 'car-magic-454906'
+      # Keep this commented unless you specifically need unauthenticated access
       # - '--allow-unauthenticated'
 
 # images section
@@ -61,7 +53,7 @@ images:
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# availableSecrets section
+# availableSecrets section (defines how secrets are fetched)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
