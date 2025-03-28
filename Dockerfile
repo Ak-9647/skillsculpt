@@ -23,9 +23,12 @@
   COPY --from=deps /app/node_modules ./node_modules
   COPY . .
   
-  # NEW RUN step: Create .env.production from secrets provided by Cloud Build secretEnv
-  # Note: We use the Cloud Build env var names (e.g., ${FIREBASE_API_KEY}) here
+  # Modify RUN step: Add printenv for debugging
   RUN \
+    echo "--- Checking Env Vars INSIDE Docker Build Step ---" && \
+    printenv | grep FIREBASE_ && \
+    echo "--------------------------------------------------" && \
+    # Now create the .env.production file
     echo "NEXT_PUBLIC_FIREBASE_API_KEY=${FIREBASE_API_KEY}" > .env.production && \
     echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}" >> .env.production && \
     echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}" >> .env.production && \
