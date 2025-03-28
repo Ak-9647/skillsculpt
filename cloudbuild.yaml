@@ -1,7 +1,7 @@
 steps:
   # 1. Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build' # Added ID for clarity
+    id: 'Build'
     args:
       - 'build'
       - '--no-cache' # Force rebuild to hopefully fix COPY node_modules issue
@@ -24,12 +24,12 @@ steps:
       - '--platform'
       - 'linux/amd64'
       - '.'
-    secretEnv: # Required by validator when availableSecrets uses env
+    secretEnv:
       - 'FIREBASE_API_KEY'
       - 'FIREBASE_AUTH_DOMAIN'
       - 'FIREBASE_PROJECT_ID'
       - 'FIREBASE_STORAGE_BUCKET'
-      - 'FIREBASE_MESSAGING_SENDER_ID' # Must have corresponding entry in availableSecrets
+      - 'FIREBASE_MESSAGING_SENDER_ID'
       - 'FIREBASE_APP_ID'
 
   # 2. Push the Docker image to Artifact Registry
@@ -61,7 +61,7 @@ images:
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# availableSecrets section (Ensure ALL entries are present and correct)
+# availableSecrets section
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
@@ -72,7 +72,7 @@ availableSecrets:
       env: 'FIREBASE_PROJECT_ID'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
       env: 'FIREBASE_STORAGE_BUCKET'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest # Make sure this entry exists
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
       env: 'FIREBASE_MESSAGING_SENDER_ID'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: 'FIREBASE_APP_ID'
