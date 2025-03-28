@@ -36,14 +36,15 @@ steps:
       - 'push'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
 
-  # 3. Deploy the image to Cloud Run using gcloud builder  <- CORRECTED STEP
+  # 3. Deploy the image to Cloud Run using gcloud builder
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
       - 'deploy'
       - 'skillsculpt-app' # Service name
       - '--image'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA' # Image to deploy
+      # --- Deploy using the ':latest' tag ---
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
       - '--region'
       - 'us-west2' # Service region
       - '--platform'
@@ -77,10 +78,10 @@ availableSecrets:
 
 # substitutions section remains the same
 substitutions:
-  _SERVICE_NAME: skillsculpt-app # Note: This is defined but not directly used now
-  _CLOUD_RUN_REGION: us-west2 # Note: This is defined but not directly used now
-  _ARTIFACT_REGISTRY_REGION: us-west2 # Note: This is defined but not directly used now
-  _ARTIFACT_REPO_NAME: skillsculpt-repo # Note: This is defined but not directly used now
+  _SERVICE_NAME: skillsculpt-app
+  _CLOUD_RUN_REGION: us-west2
+  _ARTIFACT_REGISTRY_REGION: us-west2
+  _ARTIFACT_REPO_NAME: skillsculpt-repo
 
 # timeout section remains the same
 timeout: '1200s' # 20 minutes
