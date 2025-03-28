@@ -32,10 +32,10 @@ Thumbs.db
 # Test reports (if any)
 coverage
 
-# Ignore temporary secret files created by Cloud Build step 0
-FIREBASE_API_KEY_FILE
-FIREBASE_AUTH_DOMAIN_FILE
-FIREBASE_PROJECT_ID_FILE
-FIREBASE_STORAGE_BUCKET_FILE
-FIREBASE_MESSAGING_SENDER_ID_FILE
-FIREBASE_APP_ID_FILE
+# DO NOT ignore temporary secret files here anymore
+# FIREBASE_API_KEY_FILE <-- Removed
+# FIREBASE_AUTH_DOMAIN_FILE <-- Removed
+# FIREBASE_PROJECT_ID_FILE <-- Removed
+# FIREBASE_STORAGE_BUCKET_FILE <-- Removed
+# FIREBASE_MESSAGING_SENDER_ID_FILE <-- Removed
+# FIREBASE_APP_ID_FILE <-- Removed
