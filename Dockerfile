@@ -7,7 +7,6 @@
   FROM base AS deps
   WORKDIR /app
   COPY package*.json ./
-  # Ensure clean RUN command for dependencies
   RUN \
     if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
     elif [ -f package-lock.json ]; then npm ci; \
@@ -18,23 +17,32 @@
   # ---- Builder ----
   FROM base AS builder
   WORKDIR /app
-  # NO ARG declarations needed here anymore
+  # NO ARG declarations
   
   COPY --from=deps /app/node_modules ./node_modules
   COPY . .
   
-  # Modify RUN step: Add printenv for debugging
+  # Modified RUN step: Create .env.production from secrets mounted as files by Cloud Build volumes
   RUN \
-    echo "--- Checking Env Vars INSIDE Docker Build Step ---" && \
-    printenv | grep FIREBASE_ && \
-    echo "--------------------------------------------------" && \
-    # Now create the .env.production file
-    echo "NEXT_PUBLIC_FIREBASE_API_KEY=${FIREBASE_API_KEY}" > .env.production && \
-    echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}" >> .env.production && \
-    echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}" >> .env.production && \
-    echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}" >> .env.production && \
-    echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}" >> .env.production && \
-    echo "NEXT_PUBLIC_FIREBASE_APP_ID=${FIREBASE_APP_ID}" >> .env.production && \
+    echo "--- Reading secrets from /secrets ---" && \
+    ls -l /secrets && \
+    # Read secret content from files into shell variables
+    # Using || true to prevent failure if a file is unexpectedly missing/empty during debug
+    API_KEY=$(cat /secrets/FIREBASE_API_KEY || true) && \
+    AUTH_DOMAIN=$(cat /secrets/FIREBASE_AUTH_DOMAIN || true) && \
+    PROJECT_ID=$(cat /secrets/FIREBASE_PROJECT_ID || true) && \
+    STORAGE_BUCKET=$(cat /secrets/FIREBASE_STORAGE_BUCKET || true) && \
+    MESSAGING_SENDER_ID=$(cat /secrets/FIREBASE_MESSAGING_SENDER_ID || true) && \
+    APP_ID=$(cat /secrets/FIREBASE_APP_ID || true) && \
+    \
+    # Create .env.production using the shell variables
+    echo "NEXT_PUBLIC_FIREBASE_API_KEY=${API_KEY}" > .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${AUTH_DOMAIN}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${PROJECT_ID}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${STORAGE_BUCKET}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${MESSAGING_SENDER_ID}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_APP_ID=${APP_ID}" >> .env.production && \
+    \
     echo "--- Created .env.production ---" && \
     cat .env.production && \
     echo "--- Running Build ---" && \
@@ -45,19 +53,16 @@
     fi
   
   # ---- Runner ----
+  # ... (Runner stage remains the same as before) ...
   FROM base AS runner
   WORKDIR /app
   ENV NODE_ENV=production
   ENV PORT=8080
-  # Add back user/group setup
   RUN addgroup --system --gid 1001 nodejs
   RUN adduser --system --uid 1001 nextjs
-  # Add back COPY commands for runner stage from builder
   COPY --from=builder --chown=nextjs:nodejs /app/public ./public
   COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
   COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-  # Add back USER instruction
   USER nextjs
   EXPOSE 8080
-  # Restore the correct CMD to start the server
   CMD ["node", "server.js"]
