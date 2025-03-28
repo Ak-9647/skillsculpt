@@ -39,7 +39,7 @@ steps:
       - '--platform'
       - 'linux/amd64'
       - '.'
-    # REMOVE secretEnv from this docker build step - secrets are now copied from /workspace
+    # NO secretEnv needed here anymore
 
   # Step 2 (Original Step 1): Push the Docker image
   - name: 'gcr.io/cloud-builders/docker'
@@ -57,11 +57,22 @@ steps:
       - 'run'
       - 'deploy'
       - 'skillsculpt-app' # Service name
-      # ... rest of deploy args ...
+      - '--image'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+      - '--region'
+      - 'us-west2' # Service region
+      - '--platform'
+      - 'managed'
       - '--project'
       - 'car-magic-454906'
+      # - '--allow-unauthenticated'
 
-# availableSecrets section (still needed for Step 0)
+# images section
+images:
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+
+# availableSecrets section (needed for Step 0)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
@@ -78,10 +89,15 @@ availableSecrets:
       env: 'FIREBASE_APP_ID'
 
 # substitutions section
-# ... (remains the same) ...
+substitutions:
+  _SERVICE_NAME: skillsculpt-app
+  _CLOUD_RUN_REGION: us-west2
+  _ARTIFACT_REGISTRY_REGION: us-west2
+  _ARTIFACT_REPO_NAME: skillsculpt-repo
 
 # timeout section
-# ... (remains the same) ...
+timeout: '1200s' # 20 minutes
 
-# options section
-# ... (remains the same) ...
+# options section <-- ENSURE THIS BLOCK IS PRESENT AND CORRECTLY INDENTED
+options:
+  logging: CLOUD_LOGGING_ONLY
