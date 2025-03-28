@@ -28,9 +28,6 @@
     COPY --from=deps /app/node_modules ./node_modules
     COPY . .
     
-    # Debug: Print environment variables (Optional - can be removed later)
-    # RUN printenv | grep NEXT_PUBLIC_FIREBASE || true
-    
     # Set ENV vars explicitly only for the build command, using ARGs
     RUN \
       export NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY && \
