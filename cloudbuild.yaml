@@ -1,112 +1,76 @@
-# cloudbuild.yaml (Corrected Placement of availableSecrets)
-
-# Timeout for the build
-timeout: '1200s' # 20 minutes
-
-# Define substitutions used in the build
-substitutions:
-  _SERVICE_NAME: skillsculpt-app
-  _CLOUD_RUN_REGION: us-west2
-  _ARTIFACT_REGISTRY_REGION: us-west2
-  _ARTIFACT_REPO_NAME: skillsculpt-repo
+# cloudbuild.yaml - Simplified structure based on user's original + Standardized Env Names
 
 steps:
-# -----------------------------------------
-# STEP 0: Debug Secrets Passed as Env Vars
-# Uses the environment variables made available globally by the top-level availableSecrets block.
-# -----------------------------------------
-- name: 'ubuntu'
-  id: DebugSecrets
-  entrypoint: 'bash'
-  args:
-  - -c
-  - |
-    echo "--- DEBUGGING BUILD ENV VARS (Standardized Names) ---"
-    echo "API Key Env Var: [$$NEXT_PUBLIC_FIREBASE_API_KEY]"
-    echo "Auth Domain Env Var: [$$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN]"
-    echo "Project ID Env Var: [$$NEXT_PUBLIC_FIREBASE_PROJECT_ID]"
-    echo "Storage Bucket Env Var: [$$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET]"
-    echo "Messaging Sender ID Env Var: [$$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID]"
-    echo "App ID Env Var: [$$NEXT_PUBLIC_FIREBASE_APP_ID]"
-    echo "-----------------------------------------------------"
-  # NO availableSecrets block needed INSIDE the step here
+  # 1. Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build # Added ID for waitFor dependency
+    args:
+      - 'build'
+      - '--tag'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+      - '--tag'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+      # Pass build args using NEXT_PUBLIC_ prefix for both arg name and $$ substitution source
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$NEXT_PUBLIC_FIREBASE_API_KEY'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$NEXT_PUBLIC_FIREBASE_PROJECT_ID'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$NEXT_PUBLIC_FIREBASE_APP_ID'
+      - '--platform'
+      - 'linux/amd64'
+      - '.'
+    # Make secrets available to this step via env vars (using standardized NEXT_PUBLIC_ names)
+    # This is needed for the $$ substitution in args to work. Relies on top-level availableSecrets.
+    secretEnv:
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID'
 
-# -----------------------------------------
-# STEP 1: Build Docker Image
-# Uses standardized NEXT_PUBLIC_... env vars (from top-level availableSecrets)
-# for substitution into build args.
-# -----------------------------------------
-- name: 'gcr.io/cloud-builders/docker'
-  id: Build
-  args:
-    - 'build'
-    # Tagging
-    - '--tag'
-    - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
-    - '--tag'
-    - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
-    # Build Arguments using standardized $$NEXT_PUBLIC_... substitution
-    - '--build-arg'
-    - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$NEXT_PUBLIC_FIREBASE_API_KEY'
-    - '--build-arg'
-    - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
-    - '--build-arg'
-    - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$NEXT_PUBLIC_FIREBASE_PROJECT_ID'
-    - '--build-arg'
-    - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
-    - '--build-arg'
-    - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
-    - '--build-arg'
-    - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$NEXT_PUBLIC_FIREBASE_APP_ID'
-    # Specify platform
-    - '--platform'
-    - 'linux/amd64'
-    # Build context
-    - '.'
-  # NO availableSecrets block needed INSIDE the step here
+  # 2. Push the Docker image to Artifact Registry (Fixed to push all tags)
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push # Added ID for waitFor dependency
+    args:
+      - 'push'
+      - '--all-tags' # Added --all-tags
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
+    waitFor: ['Build'] # Depends on Build step completing
 
-# -----------------------------------------
-# STEP 2: Push Docker Image to Artifact Registry
-# Pushing with --all-tags ensures both :latest and :$COMMIT_SHA are pushed
-# -----------------------------------------
-- name: 'gcr.io/cloud-builders/docker'
-  id: Push
-  args:
-    - 'push'
-    - '--all-tags' # Push both commit sha and latest tags
-    - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}'
-  waitFor: ['Build'] # Depends on Build step
-
-# -----------------------------------------
-# STEP 3: Deploy to Cloud Run
-# Deploys the ':latest' image.
-# -----------------------------------------
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: Deploy
-  args:
-    - 'run'
-    - 'deploy'
-    - '${_SERVICE_NAME}'
-    - '--image'
-    - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
-    - '--region'
-    - '${_CLOUD_RUN_REGION}'
-    - '--platform'
-    - 'managed'
-    - '--project'
-    - '${PROJECT_ID}' # Use built-in substitution PROJECT_ID
-    # - '--allow-unauthenticated' # Uncomment if needed
-    - '--quiet' # Suppress interactive prompts
-  waitFor: ['Push'] # Depends on Push step
+  # 3. Deploy the image to Cloud Run using gcloud builder
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: Deploy # Added ID
+    args:
+      - 'run'
+      - 'deploy'
+      - 'skillsculpt-app' # Service name
+      - '--image'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+      - '--region'
+      - 'us-west2' # Service region
+      - '--platform'
+      - 'managed'
+      - '--project'
+      - 'car-magic-454906'
+      # - '--allow-unauthenticated' # Uncomment if needed
+      - '--quiet'
+    waitFor: ['Push'] # Depends on Push step completing
 
 # List of images created by the build (for GCB metadata)
 images:
-  - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
-  - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
 # ---- TOP-LEVEL availableSecrets Block ----
-# This makes secrets available as environment variables to ALL build steps.
-# Standardized to use NEXT_PUBLIC_... env var names directly.
+# Standardized to map secrets to env vars with NEXT_PUBLIC_... names directly.
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
@@ -121,6 +85,16 @@ availableSecrets:
       env: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID' # Standardized name
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: 'NEXT_PUBLIC_FIREBASE_APP_ID' # Standardized name
+
+# Define substitutions used in the build
+substitutions:
+  _SERVICE_NAME: skillsculpt-app
+  _CLOUD_RUN_REGION: us-west2
+  _ARTIFACT_REGISTRY_REGION: us-west2
+  _ARTIFACT_REPO_NAME: skillsculpt-repo
+
+# Timeout for the build
+timeout: '1200s' # 20 minutes
 
 # Build options
 options:
