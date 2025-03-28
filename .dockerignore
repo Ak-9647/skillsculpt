@@ -9,7 +9,7 @@ node_modules
 .next
 
 # Docker files
-Dockerfile
+# Dockerfile <-- Line removed
 .dockerignore
 
 # Env files (sensitive info should be injected at runtime)
@@ -29,4 +29,4 @@ Dockerfile
 Thumbs.db
 
 # Test reports (if any)
-coverage 
+coverage
