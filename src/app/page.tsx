@@ -16,10 +16,12 @@ export default function Home() {
             Build the perfect resume, optimize your profiles, and land your dream job with AI-powered tools designed for success.
           </p>
           <div className="mt-8 flex justify-center gap-4">
-            <Link href="/signup" passHref>
+            {/* ***** CHANGED href HERE ***** */}
+            <Link href="/auth/signup" passHref>
               <Button size="lg">Get Started</Button>
             </Link>
-            <Link href="/signin" passHref>
+            {/* ***** CHANGED href HERE ***** */}
+            <Link href="/auth/signin" passHref>
               <Button size="lg" variant="outline">
                 Sign In
               </Button>
