@@ -4,8 +4,7 @@ steps:
     id: 'Build'
     args:
       - 'build'
-      # Consider removing --no-cache later once things are stable
-      - '--no-cache'
+      - '--no-cache' # Keep --no-cache for this attempt
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
       - '--tag'
@@ -14,7 +13,7 @@ steps:
       - '--platform'
       - 'linux/amd64'
       - '.'
-    # This section is now used by the Dockerfile RUN step to create .env.production
+    # This section provides secrets as env vars to the build container
     secretEnv:
       - 'FIREBASE_API_KEY'
       - 'FIREBASE_AUTH_DOMAIN'
@@ -45,7 +44,6 @@ steps:
       - 'managed'
       - '--project'
       - 'car-magic-454906'
-      # Keep this commented unless you specifically need unauthenticated access
       # - '--allow-unauthenticated'
 
 # images section
@@ -53,7 +51,7 @@ images:
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# availableSecrets section (defines how secrets are fetched)
+# availableSecrets section
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest

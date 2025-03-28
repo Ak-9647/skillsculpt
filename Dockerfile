@@ -18,27 +18,22 @@
   # ---- Builder ----
   FROM base AS builder
   WORKDIR /app
-  # Add back ARG declarations
-  ARG NEXT_PUBLIC_FIREBASE_API_KEY
-  ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-  ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
-  ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-  ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-  ARG NEXT_PUBLIC_FIREBASE_APP_ID
+  # NO ARG declarations needed here anymore
   
   COPY --from=deps /app/node_modules ./node_modules
   COPY . .
   
-  # Add back the build command RUN block - ensure clean syntax
+  # NEW RUN step: Create .env.production from secrets provided by Cloud Build secretEnv
+  # Note: We use the Cloud Build env var names (e.g., ${FIREBASE_API_KEY}) here
   RUN \
-    export NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY && \
-    export NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN && \
-    export NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID && \
-    export NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET && \
-    export NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID && \
-    export NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID && \
-    echo "--- Checking ENV Vars before build ---" && \
-    printenv | grep NEXT_PUBLIC_FIREBASE && \
+    echo "NEXT_PUBLIC_FIREBASE_API_KEY=${FIREBASE_API_KEY}" > .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}" >> .env.production && \
+    echo "NEXT_PUBLIC_FIREBASE_APP_ID=${FIREBASE_APP_ID}" >> .env.production && \
+    echo "--- Created .env.production ---" && \
+    cat .env.production && \
     echo "--- Running Build ---" && \
     if [ -f yarn.lock ]; then yarn build; \
     elif [ -f package-lock.json ]; then npm run build; \
@@ -50,7 +45,7 @@
   FROM base AS runner
   WORKDIR /app
   ENV NODE_ENV=production
-  ENV PORT=8080 # Use PORT 8080 - common default expected by Cloud Run
+  ENV PORT=8080
   # Add back user/group setup
   RUN addgroup --system --gid 1001 nodejs
   RUN adduser --system --uid 1001 nextjs
