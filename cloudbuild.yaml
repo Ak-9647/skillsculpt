@@ -1,7 +1,8 @@
 steps:
-  # NEW Step 0: Create secret files in /workspace using bash and $$VAR notation
-  - name: 'gcr.io/cloud-builders/bash'
+  # Step 0: Create secret files in /workspace using bash on ubuntu image
+  - name: 'ubuntu' # *** CHANGED from gcr.io/cloud-builders/bash ***
     id: 'Create Secret Files'
+    entrypoint: 'bash' # *** ADDED entrypoint ***
     args:
       - '-c'
       - |
@@ -27,7 +28,6 @@ steps:
   # Step 1 (Original Step 0): Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build'
-    # This step now depends on files created in Step 0
     waitFor: ['Create Secret Files'] # Ensure Step 0 finishes first
     args:
       - 'build'
@@ -98,6 +98,6 @@ substitutions:
 # timeout section
 timeout: '1200s' # 20 minutes
 
-# options section <-- ENSURE THIS BLOCK IS PRESENT AND CORRECTLY INDENTED
+# options section (Ensure this is still present!)
 options:
   logging: CLOUD_LOGGING_ONLY
