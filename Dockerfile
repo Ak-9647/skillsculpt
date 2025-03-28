@@ -30,7 +30,7 @@
   ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
   ARG NEXT_PUBLIC_FIREBASE_APP_ID
   
-  COPY --from=deps /app/node_modules ./node_modules # This is the step that failed previously
+  COPY --from=deps /app/node_modules ./node_modules
   COPY . .
   
   # Set ENV vars explicitly only for the build command, using ARGs
