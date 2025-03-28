@@ -1,3 +1,5 @@
+# cloudbuild.yaml (Corrected Placement of availableSecrets)
+
 # Timeout for the build
 timeout: '1200s' # 20 minutes
 
@@ -7,14 +9,11 @@ substitutions:
   _CLOUD_RUN_REGION: us-west2
   _ARTIFACT_REGISTRY_REGION: us-west2
   _ARTIFACT_REPO_NAME: skillsculpt-repo
-  # Using PROJECT_ID directly instead of _PROJECT_ID substitution for clarity in paths
-  # _PROJECT_ID: car-magic-454906 
 
 steps:
 # -----------------------------------------
 # STEP 0: Debug Secrets Passed as Env Vars
-# This step prints the values Cloud Build receives from Secret Manager
-# using the standardized NEXT_PUBLIC_... env var names.
+# Uses the environment variables made available globally by the top-level availableSecrets block.
 # -----------------------------------------
 - name: 'ubuntu'
   id: DebugSecrets
@@ -30,27 +29,12 @@ steps:
     echo "Messaging Sender ID Env Var: [$$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID]"
     echo "App ID Env Var: [$$NEXT_PUBLIC_FIREBASE_APP_ID]"
     echo "-----------------------------------------------------"
-  # This step needs access to secrets mapped to NEXT_PUBLIC_... env vars
-  availableSecrets:
-    secretManager:
-    # Mapping secrets directly to env vars named NEXT_PUBLIC_...
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_API_KEY'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_APP_ID'
+  # NO availableSecrets block needed INSIDE the step here
 
 # -----------------------------------------
 # STEP 1: Build Docker Image
-# Uses standardized NEXT_PUBLIC_... env vars for substitution into build args.
-# Removed the redundant 'secretEnv' section from this step.
+# Uses standardized NEXT_PUBLIC_... env vars (from top-level availableSecrets)
+# for substitution into build args.
 # -----------------------------------------
 - name: 'gcr.io/cloud-builders/docker'
   id: Build
@@ -79,22 +63,7 @@ steps:
     - 'linux/amd64'
     # Build context
     - '.'
-  # This step needs access to secrets mapped to NEXT_PUBLIC_... env vars for $$ substitution
-  availableSecrets:
-    secretManager:
-    # Mapping secrets directly to env vars named NEXT_PUBLIC_...
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_API_KEY'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_APP_ID'
+  # NO availableSecrets block needed INSIDE the step here
 
 # -----------------------------------------
 # STEP 2: Push Docker Image to Artifact Registry
@@ -102,7 +71,7 @@ steps:
 # -----------------------------------------
 - name: 'gcr.io/cloud-builders/docker'
   id: Push
-  args: 
+  args:
     - 'push'
     - '--all-tags' # Push both commit sha and latest tags
     - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}'
@@ -135,22 +104,23 @@ images:
   - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
   - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
 
-# Global availableSecrets definition (matches the ones used in steps)
-# Ensures secrets are accessible for $$ substitution
+# ---- TOP-LEVEL availableSecrets Block ----
+# This makes secrets available as environment variables to ALL build steps.
+# Standardized to use NEXT_PUBLIC_... env var names directly.
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_API_KEY'
+      env: 'NEXT_PUBLIC_FIREBASE_API_KEY' # Standardized name
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
+      env: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN' # Standardized name
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'
+      env: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID' # Standardized name
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
+      env: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET' # Standardized name
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
+      env: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID' # Standardized name
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_APP_ID'
+      env: 'NEXT_PUBLIC_FIREBASE_APP_ID' # Standardized name
 
 # Build options
 options:
@@ -158,5 +128,4 @@ options:
 
 # Specify the service account for the trigger (due to org policy)
 # --- Replace YOUR_TRIGGER_SERVICE_ACCOUNT_EMAIL ---
-# Make sure this service account has permissions for Secret Manager, Artifact Registry, Cloud Run
-# serviceAccount: projects/YOUR_PROJECT_ID/serviceAccounts/YOUR_TRIGGER_SERVICE_ACCOUNT_EMAIL
+# serviceAccount: projects/car-magic-454906/serviceAccounts/YOUR_TRIGGER_SERVICE_ACCOUNT_EMAIL
