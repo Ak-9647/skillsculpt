@@ -25,16 +25,13 @@
     ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     ARG NEXT_PUBLIC_FIREBASE_APP_ID
     
-    # --- REMOVED ENV lines that were causing issues ---
-    
     COPY --from=deps /app/node_modules ./node_modules
     COPY . .
     
     # Debug: Print environment variables (Optional - can be removed later)
     # RUN printenv | grep NEXT_PUBLIC_FIREBASE || true
     
-    # Set ENV vars explicitly ONLY for the build command, using ARGs passed in
-    # Ensure the correct build command (npm run build, yarn build, etc.) is used last
+    # Set ENV vars explicitly only for the build command, using ARGs
     RUN \
       NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY \
       NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
@@ -42,7 +39,7 @@
       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
       NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID \
-      # --- Append the actual build command (ensure only ONE runs) ---
+      # --- Run the actual build command --- (Comment removed from previous line)
       if [ -f yarn.lock ]; then yarn build; \
       elif [ -f package-lock.json ]; then npm run build; \
       elif [ -f pnpm-lock.yaml ]; then pnpm build; \
@@ -62,6 +59,6 @@
     # Copy static assets
     COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
     USER nextjs
-    EXPOSE 8080 # Expose the port the app listens on
+    EXPOSE 8080 # Inform Docker that the container listens on this port
     # Correct CMD for standalone output (server.js is inside the standalone dir)
     CMD ["node", "server.js"]
