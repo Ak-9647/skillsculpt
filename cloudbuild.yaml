@@ -1,53 +1,44 @@
-# cloudbuild.yaml - Simplified structure based on user's original + Standardized Env Names
-
 steps:
   # 1. Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    id: Build # Added ID for waitFor dependency
     args:
       - 'build'
+      - '--no-cache' # Add this flag to disable Docker layer caching for this build
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
-      # Pass build args using NEXT_PUBLIC_ prefix for both arg name and $$ substitution source
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$NEXT_PUBLIC_FIREBASE_API_KEY'
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$FIREBASE_API_KEY'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$$FIREBASE_AUTH_DOMAIN'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$NEXT_PUBLIC_FIREBASE_PROJECT_ID'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$$FIREBASE_PROJECT_ID'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$$FIREBASE_STORAGE_BUCKET'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$FIREBASE_MESSAGING_SENDER_ID'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$NEXT_PUBLIC_FIREBASE_APP_ID'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=$$FIREBASE_APP_ID'
       - '--platform'
       - 'linux/amd64'
       - '.'
-    # Make secrets available to this step via env vars (using standardized NEXT_PUBLIC_ names)
-    # This is needed for the $$ substitution in args to work. Relies on top-level availableSecrets.
     secretEnv:
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY'
-      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
-      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'
-      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
-      - 'NEXT_PUBLIC_FIREBASE_APP_ID'
+      - 'FIREBASE_API_KEY'
+      - 'FIREBASE_AUTH_DOMAIN'
+      - 'FIREBASE_PROJECT_ID'
+      - 'FIREBASE_STORAGE_BUCKET'
+      - 'FIREBASE_MESSAGING_SENDER_ID'
+      - 'FIREBASE_APP_ID'
 
-  # 2. Push the Docker image to Artifact Registry (Fixed to push all tags)
+  # 2. Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    id: Push # Added ID for waitFor dependency
     args:
       - 'push'
-      - '--all-tags' # Added --all-tags
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
-    waitFor: ['Build'] # Depends on Build step completing
 
   # 3. Deploy the image to Cloud Run using gcloud builder
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: Deploy # Added ID
     args:
       - 'run'
       - 'deploy'
@@ -60,46 +51,32 @@ steps:
       - 'managed'
       - '--project'
       - 'car-magic-454906'
-      # - '--allow-unauthenticated' # Uncomment if needed
-      - '--quiet'
-    waitFor: ['Push'] # Depends on Push step completing
+      # - '--allow-unauthenticated'
 
-# List of images created by the build (for GCB metadata)
+# images section
 images:
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# ---- TOP-LEVEL availableSecrets Block ----
-# Standardized to map secrets to env vars with NEXT_PUBLIC_... names directly.
+# availableSecrets section
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_API_KEY' # Standardized name
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN' # Standardized name
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID' # Standardized name
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET' # Standardized name
-    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID' # Standardized name
+      env: 'FIREBASE_API_KEY'
+    # ... other secrets ...
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_APP_ID' # Standardized name
+      env: 'FIREBASE_APP_ID'
 
-# Define substitutions used in the build
+# substitutions section
 substitutions:
   _SERVICE_NAME: skillsculpt-app
   _CLOUD_RUN_REGION: us-west2
   _ARTIFACT_REGISTRY_REGION: us-west2
   _ARTIFACT_REPO_NAME: skillsculpt-repo
 
-# Timeout for the build
+# timeout section
 timeout: '1200s' # 20 minutes
 
-# Build options
+# options section
 options:
   logging: CLOUD_LOGGING_ONLY
-
-# Specify the service account for the trigger (due to org policy)
-# --- Replace YOUR_TRIGGER_SERVICE_ACCOUNT_EMAIL ---
-# serviceAccount: projects/car-magic-454906/serviceAccounts/YOUR_TRIGGER_SERVICE_ACCOUNT_EMAIL
