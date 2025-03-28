@@ -39,7 +39,7 @@
       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
       NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID \
-      # --- Run the actual build command --- (Comment removed from previous line)
+      # --- Run the actual build command --- (NO COMMENT HERE)
       if [ -f yarn.lock ]; then yarn build; \
       elif [ -f package-lock.json ]; then npm run build; \
       elif [ -f pnpm-lock.yaml ]; then pnpm build; \
