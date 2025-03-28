@@ -1,9 +1,10 @@
 steps:
   # 1. Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build' # Added ID for clarity
     args:
       - 'build'
-      - '--no-cache' # Add this flag to disable Docker layer caching for this build
+      - '--no-cache' # Force rebuild to hopefully fix COPY node_modules issue
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
       - '--tag'
@@ -23,22 +24,24 @@ steps:
       - '--platform'
       - 'linux/amd64'
       - '.'
-    secretEnv:
+    secretEnv: # Required by validator when availableSecrets uses env
       - 'FIREBASE_API_KEY'
       - 'FIREBASE_AUTH_DOMAIN'
       - 'FIREBASE_PROJECT_ID'
       - 'FIREBASE_STORAGE_BUCKET'
-      - 'FIREBASE_MESSAGING_SENDER_ID'
+      - 'FIREBASE_MESSAGING_SENDER_ID' # Must have corresponding entry in availableSecrets
       - 'FIREBASE_APP_ID'
 
   # 2. Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push'
     args:
       - 'push'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
 
   # 3. Deploy the image to Cloud Run using gcloud builder
   - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy'
     args:
       - 'run'
       - 'deploy'
@@ -58,12 +61,19 @@ images:
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
   - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# availableSecrets section
+# availableSecrets section (Ensure ALL entries are present and correct)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
       env: 'FIREBASE_API_KEY'
-    # ... other secrets ...
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
+      env: 'FIREBASE_AUTH_DOMAIN'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
+      env: 'FIREBASE_PROJECT_ID'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
+      env: 'FIREBASE_STORAGE_BUCKET'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest # Make sure this entry exists
+      env: 'FIREBASE_MESSAGING_SENDER_ID'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: 'FIREBASE_APP_ID'
 
