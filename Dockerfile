@@ -22,20 +22,27 @@
   COPY --from=deps /app/node_modules ./node_modules
   COPY . .
   
-  # Modified RUN step: Create .env.production from secrets auto-mounted as files by Cloud Build in /workspace/.secrets/
+  # ADD COPY step: Copy secret files from /workspace (build context root) into /secrets
+  # These files were created by the initial Cloud Build step (Step 0)
+  COPY FIREBASE_API_KEY_FILE /secrets/
+  COPY FIREBASE_AUTH_DOMAIN_FILE /secrets/
+  COPY FIREBASE_PROJECT_ID_FILE /secrets/
+  COPY FIREBASE_STORAGE_BUCKET_FILE /secrets/
+  COPY FIREBASE_MESSAGING_SENDER_ID_FILE /secrets/
+  COPY FIREBASE_APP_ID_FILE /secrets/
+  
+  # Modified RUN step: Create .env.production from secrets copied into /secrets
   RUN \
-    echo "--- Checking secrets in /workspace/.secrets ---" && \
-    # List the files Cloud Build should have created (Use ls -la for more detail)
-    ls -la /workspace/.secrets && \
-    # Read secret content from files into shell variables
-    # Using || true to prevent failure if a file is unexpectedly missing/empty during debug
-    # Use the env var names defined in cloudbuild.yaml's availableSecrets section
-    API_KEY=$(cat /workspace/.secrets/FIREBASE_API_KEY || true) && \
-    AUTH_DOMAIN=$(cat /workspace/.secrets/FIREBASE_AUTH_DOMAIN || true) && \
-    PROJECT_ID=$(cat /workspace/.secrets/FIREBASE_PROJECT_ID || true) && \
-    STORAGE_BUCKET=$(cat /workspace/.secrets/FIREBASE_STORAGE_BUCKET || true) && \
-    MESSAGING_SENDER_ID=$(cat /workspace/.secrets/FIREBASE_MESSAGING_SENDER_ID || true) && \
-    APP_ID=$(cat /workspace/.secrets/FIREBASE_APP_ID || true) && \
+    echo "--- Checking secrets copied into /secrets ---" && \
+    # List the files copied in the previous step
+    ls -la /secrets && \
+    # Read secret content from files in /secrets
+    API_KEY=$(cat /secrets/FIREBASE_API_KEY_FILE || true) && \
+    AUTH_DOMAIN=$(cat /secrets/FIREBASE_AUTH_DOMAIN_FILE || true) && \
+    PROJECT_ID=$(cat /secrets/FIREBASE_PROJECT_ID_FILE || true) && \
+    STORAGE_BUCKET=$(cat /secrets/FIREBASE_STORAGE_BUCKET_FILE || true) && \
+    MESSAGING_SENDER_ID=$(cat /secrets/FIREBASE_MESSAGING_SENDER_ID_FILE || true) && \
+    APP_ID=$(cat /secrets/FIREBASE_APP_ID_FILE || true) && \
     \
     # Create .env.production using the shell variables
     echo "NEXT_PUBLIC_FIREBASE_API_KEY=${API_KEY}" > .env.production && \
@@ -55,6 +62,7 @@
     fi
   
   # ---- Runner ----
+  # ... (Runner stage remains the same) ...
   FROM base AS runner
   WORKDIR /app
   ENV NODE_ENV=production

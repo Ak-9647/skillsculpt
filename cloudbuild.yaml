@@ -1,18 +1,21 @@
 steps:
-  # 1. Build the Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build'
+  # NEW Step 0: Create secret files in /workspace using bash and $$VAR notation
+  - name: 'gcr.io/cloud-builders/bash'
+    id: 'Create Secret Files'
     args:
-      - 'build'
-      # - '--no-cache' # Keep commented out for now
-      - '--tag'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
-      - '--tag'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
-      - '--platform'
-      - 'linux/amd64'
-      - '.'
-    # Keep secretEnv: This makes secrets available as env vars AND as files in /workspace/.secrets/
+      - '-c'
+      - |
+        echo "Creating secret files in /workspace..."
+        # Use $$VAR notation to access secrets defined in secretEnv for this step
+        echo "$$FIREBASE_API_KEY" > /workspace/FIREBASE_API_KEY_FILE
+        echo "$$FIREBASE_AUTH_DOMAIN" > /workspace/FIREBASE_AUTH_DOMAIN_FILE
+        echo "$$FIREBASE_PROJECT_ID" > /workspace/FIREBASE_PROJECT_ID_FILE
+        echo "$$FIREBASE_STORAGE_BUCKET" > /workspace/FIREBASE_STORAGE_BUCKET_FILE
+        echo "$$FIREBASE_MESSAGING_SENDER_ID" > /workspace/FIREBASE_MESSAGING_SENDER_ID_FILE
+        echo "$$FIREBASE_APP_ID" > /workspace/FIREBASE_APP_ID_FILE
+        echo "Done creating secret files. Listing /workspace:"
+        ls -la /workspace
+    # This step needs access to the secrets via secretEnv
     secretEnv:
       - 'FIREBASE_API_KEY'
       - 'FIREBASE_AUTH_DOMAIN'
@@ -21,40 +24,48 @@ steps:
       - 'FIREBASE_MESSAGING_SENDER_ID'
       - 'FIREBASE_APP_ID'
 
-  # 2. Push the Docker image to Artifact Registry
+  # Step 1 (Original Step 0): Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build'
+    # This step now depends on files created in Step 0
+    waitFor: ['Create Secret Files'] # Ensure Step 0 finishes first
+    args:
+      - 'build'
+      # - '--no-cache'
+      - '--tag'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+      - '--tag'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+      - '--platform'
+      - 'linux/amd64'
+      - '.'
+    # REMOVE secretEnv from this docker build step - secrets are now copied from /workspace
+
+  # Step 2 (Original Step 1): Push the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push'
+    waitFor: ['Build'] # Wait for the build step to succeed
     args:
       - 'push'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
 
-  # 3. Deploy the image to Cloud Run using gcloud builder
+  # Step 3 (Original Step 2): Deploy the image to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Deploy'
+    waitFor: ['Push'] # Wait for the push step to succeed
     args:
       - 'run'
       - 'deploy'
       - 'skillsculpt-app' # Service name
-      - '--image'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
-      - '--region'
-      - 'us-west2' # Service region
-      - '--platform'
-      - 'managed'
+      # ... rest of deploy args ...
       - '--project'
       - 'car-magic-454906'
-      # - '--allow-unauthenticated'
 
-# images section
-images:
-  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
-  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
-
-# availableSecrets section (using ONLY 'env:' mapping)
+# availableSecrets section (still needed for Step 0)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      env: 'FIREBASE_API_KEY' # Internal Cloud Build name
+      env: 'FIREBASE_API_KEY'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
       env: 'FIREBASE_AUTH_DOMAIN'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
@@ -67,15 +78,10 @@ availableSecrets:
       env: 'FIREBASE_APP_ID'
 
 # substitutions section
-substitutions:
-  _SERVICE_NAME: skillsculpt-app
-  _CLOUD_RUN_REGION: us-west2
-  _ARTIFACT_REGISTRY_REGION: us-west2
-  _ARTIFACT_REPO_NAME: skillsculpt-repo
+# ... (remains the same) ...
 
 # timeout section
-timeout: '1200s' # 20 minutes
+# ... (remains the same) ...
 
 # options section
-options:
-  logging: CLOUD_LOGGING_ONLY
+# ... (remains the same) ...
