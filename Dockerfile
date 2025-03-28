@@ -13,6 +13,8 @@
       elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
       else echo "Lockfile not found." && exit 1; \
       fi
+    # --- Add ls command AFTER npm ci to check for node_modules ---
+    RUN ls -la /app
     
     # ---- Builder ----
     FROM base AS builder
@@ -25,7 +27,7 @@
     ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     ARG NEXT_PUBLIC_FIREBASE_APP_ID
     
-    COPY --from=deps /app/node_modules ./node_modules
+    COPY --from=deps /app/node_modules ./node_modules # This is the step that failed previously
     COPY . .
     
     # Set ENV vars explicitly only for the build command, using ARGs
@@ -49,17 +51,12 @@
     FROM base AS runner
     WORKDIR /app
     ENV NODE_ENV=production
-    # Use PORT 8080 - common default expected by Cloud Run
-    ENV PORT=8080
+    ENV PORT=8080 # Use PORT 8080 - common default expected by Cloud Run
     RUN addgroup --system --gid 1001 nodejs
     RUN adduser --system --uid 1001 nextjs
     COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-    # Copy the standalone server output
     COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-    # Copy static assets
     COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
     USER nextjs
-    # Inform Docker that the container listens on this port
     EXPOSE 8080
-    # Correct CMD for standalone output (server.js is inside the standalone dir)
     CMD ["node", "server.js"]
