@@ -4,7 +4,7 @@ steps:
     id: 'Build'
     args:
       - 'build'
-      - '--no-cache'
+      # - '--no-cache' # Keep commented out for now
       - '--tag'
       - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
       - '--tag'
@@ -12,53 +12,70 @@ steps:
       - '--platform'
       - 'linux/amd64'
       - '.'
-    # REMOVE the secretEnv section from this step
-    # secretEnv:
-    #   - 'FIREBASE_API_KEY'
-    #   ... etc ...
-    # ADD volumes section to mount secrets into /secrets directory
-    volumes:
-      - name: 'firebase-secrets-vol' # Arbitrary volume name
-        path: '/secrets'            # Mount point inside this build step's container
+    # Keep secretEnv: This makes secrets available as env vars AND as files in /workspace/.secrets/
+    secretEnv:
+      - 'FIREBASE_API_KEY'
+      - 'FIREBASE_AUTH_DOMAIN'
+      - 'FIREBASE_PROJECT_ID'
+      - 'FIREBASE_STORAGE_BUCKET'
+      - 'FIREBASE_MESSAGING_SENDER_ID'
+      - 'FIREBASE_APP_ID'
 
-  # 2. Push the Docker image
+  # 2. Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    # ... (push step remains the same) ...
+    id: 'Push'
+    args:
+      - 'push'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
 
-  # 3. Deploy the image to Cloud Run
+  # 3. Deploy the image to Cloud Run using gcloud builder
   - name: 'gcr.io/cloud-builders/gcloud'
-    # ... (deploy step remains the same) ...
+    id: 'Deploy'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'skillsculpt-app' # Service name
+      - '--image'
+      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+      - '--region'
+      - 'us-west2' # Service region
+      - '--platform'
+      - 'managed'
+      - '--project'
+      - 'car-magic-454906'
+      # - '--allow-unauthenticated'
 
 # images section
-# ... (remains the same) ...
+images:
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
 
-# availableSecrets section: Change 'env' to 'volume' and 'fileName'
+# availableSecrets section (using ONLY 'env:' mapping)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      volume: 'firebase-secrets-vol'  # Use volume name defined above
-      fileName: 'FIREBASE_API_KEY'    # File name within the path (/secrets/FIREBASE_API_KEY)
+      env: 'FIREBASE_API_KEY' # Internal Cloud Build name
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/versions/latest
-      volume: 'firebase-secrets-vol'
-      fileName: 'FIREBASE_AUTH_DOMAIN' # /secrets/FIREBASE_AUTH_DOMAIN
+      env: 'FIREBASE_AUTH_DOMAIN'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
-      volume: 'firebase-secrets-vol'
-      fileName: 'FIREBASE_PROJECT_ID'   # /secrets/FIREBASE_PROJECT_ID
+      env: 'FIREBASE_PROJECT_ID'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/versions/latest
-      volume: 'firebase-secrets-vol'
-      fileName: 'FIREBASE_STORAGE_BUCKET'# /secrets/FIREBASE_STORAGE_BUCKET
+      env: 'FIREBASE_STORAGE_BUCKET'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
-      volume: 'firebase-secrets-vol'
-      fileName: 'FIREBASE_MESSAGING_SENDER_ID'# /secrets/FIREBASE_MESSAGING_SENDER_ID
+      env: 'FIREBASE_MESSAGING_SENDER_ID'
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
-      volume: 'firebase-secrets-vol'
-      fileName: 'FIREBASE_APP_ID'      # /secrets/FIREBASE_APP_ID
+      env: 'FIREBASE_APP_ID'
 
 # substitutions section
-# ... (remains the same) ...
+substitutions:
+  _SERVICE_NAME: skillsculpt-app
+  _CLOUD_RUN_REGION: us-west2
+  _ARTIFACT_REGISTRY_REGION: us-west2
+  _ARTIFACT_REPO_NAME: skillsculpt-repo
 
 # timeout section
-# ... (remains the same) ...
+timeout: '1200s' # 20 minutes
 
 # options section
-# ... (remains the same) ...
+options:
+  logging: CLOUD_LOGGING_ONLY
