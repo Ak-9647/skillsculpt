@@ -461,7 +461,7 @@ export default function EditResumePage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ description: currentDescription }),
+        body: JSON.stringify({ promptText: currentDescription }),
       });
 
       console.log('Function response status:', response.status);
