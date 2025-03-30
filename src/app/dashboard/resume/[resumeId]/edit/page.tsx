@@ -228,7 +228,8 @@ export default function EditResumePage() {
     };
 
     fetchResumeData();
-  }, [resumeId, router, auth.currentUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeId, router]);
 
 
   // Update editedName from resumeData if resumeData loads/changes
@@ -436,13 +437,13 @@ export default function EditResumePage() {
     console.log('Stringified body being sent:', bodyString);
     try {
       JSON.parse(bodyString); console.log('Body context appears to be valid JSON.');
-    } catch (stringifyError: unknown) { // *** FIXED: Use unknown ***
+    } catch (stringifyError: unknown) {
         const message = stringifyError instanceof Error ? stringifyError.message : 'Unknown parse error';
         const errorMsg = `Internal error: Invalid context data cannot be sent. (${message})`;
         console.error('ERROR: Body context is NOT valid JSON!', stringifyError);
         setSuggestSkillsError(errorMsg); setIsSuggestingSkills(false); return;
     }
-    console.log(`Calling suggest skills function at: ${functionUrl}`); // *** FIXED: Use functionUrl ***
+    console.log(`Calling suggest skills function at: ${functionUrl}`);
     try {
       if (!auth.currentUser) { throw new Error('Authentication error. Please log in.'); }
       const token = await getIdToken(auth.currentUser);
@@ -452,15 +453,16 @@ export default function EditResumePage() {
         try {
           const backendError = await response.text();
           errorText += ` - ${backendError}`;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_textError) { /* ignore */ }
         console.error(`Error from suggest skills function: ${errorText}`); throw new Error(errorText);
       }
       const data = await response.json();
       console.log('Received suggestions:', data.suggestedSkills);
-      if (data.suggestedSkills && Array.isArray(data.suggestedSkills)) { // Add type check
+      if (data.suggestedSkills && Array.isArray(data.suggestedSkills)) {
         setSuggestedSkills(data.suggestedSkills); toast.success('Skill suggestions received!');
       } else { throw new Error('Invalid response structure from AI function.'); }
-    } catch (error: unknown) { // *** FIXED: Use unknown ***
+    } catch (error: unknown) {
       console.error('Error suggesting skills:', error);
       const message = error instanceof Error ? error.message : 'An unknown error occurred';
       setSuggestSkillsError(message); toast.error(`Failed to get suggestions: ${message}`);
