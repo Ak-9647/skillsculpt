@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -170,45 +169,66 @@ export default function EditResumePage() {
       router.push('/dashboard/resume');
       return;
     }
-    setIsLoading(true);
+
     const fetchResumeData = async () => {
       try {
         const docRef = doc(db, 'resumes', resumeId);
         const docSnap = await getDoc(docRef);
+        
         if (docSnap.exists()) {
-          const fetchedData = docSnap.data();
-          const data = { id: docSnap.id, ...fetchedData } as Resume;
-          setResumeData(data);
-          setExperience(data.experience || []);
-          setEducation(data.education || []);
-          setSkills(data.skills || []);
-          setSummary(data.summary || '');
-          setEditedName(data.resumeName || '');
-          setContactEmail(data.contact?.email || '');
-          setContactPhone(data.contact?.phone || '');
-          setContactLinkedin(data.contact?.linkedin || '');
-          setContactPortfolio(data.contact?.portfolio || '');
-          setContactLocation(data.contact?.location || '');
-          // setSelectedTemplate(data.templatePreference || 'classic'); // Add when saving preference
+          const data = docSnap.data();
+          const defaultContact: Contact = {
+            email: '',
+            phone: '',
+            linkedin: '',
+            portfolio: '',
+            location: ''
+          };
+          
+          const resume: Resume = {
+            id: docSnap.id,
+            userId: data.userId || auth.currentUser?.uid || '',
+            resumeName: data.resumeName || '',
+            contact: { ...defaultContact, ...data.contact },
+            summary: data.summary || '',
+            experience: data.experience || [],
+            education: data.education || [],
+            skills: data.skills || [],
+            templatePreference: data.templatePreference || 'classic',
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt
+          };
+          
+          setResumeData(resume);
+          setExperience(resume.experience);
+          setEducation(resume.education);
+          setSkills(resume.skills);
+          setSummary(resume.summary);
+          setEditedName(resume.resumeName);
+          setContactEmail(resume.contact.email);
+          setContactPhone(resume.contact.phone);
+          setContactLinkedin(resume.contact.linkedin);
+          setContactPortfolio(resume.contact.portfolio);
+          setContactLocation(resume.contact.location);
         } else {
           console.log('No such document!');
           toast.error("Resume not found.");
           setResumeData(null);
           router.push('/dashboard/resume');
         }
-      } catch (error: unknown) { // *** FIXED: Use unknown ***
+      } catch (error: unknown) {
         console.error('Error fetching resume:', error);
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        toast.error(`Error fetching resume: ${message}`);
-        setResumeData(null);
-        // Optionally redirect on fetch error too
-        // router.push('/dashboard/resume'); 
+        const message = error instanceof Error ? error.message : 'An unknown error occurred';
+        toast.error(`Failed to load resume: ${message}`);
+        setIsLoading(false);
+        router.push('/dashboard/resume');
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchResumeData();
-  }, [resumeId, router]);
+  }, [resumeId, router, auth.currentUser]);
 
 
   // Update editedName from resumeData if resumeData loads/changes
@@ -429,7 +449,10 @@ export default function EditResumePage() {
       const response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: bodyString });
       if (!response.ok) {
         let errorText = `HTTP error! Status: ${response.status}`;
-        try { const backendError = await response.text(); errorText += ` - ${backendError}`; } catch (textError) { /* ignore */ }
+        try {
+          const backendError = await response.text();
+          errorText += ` - ${backendError}`;
+        } catch (_textError) { /* ignore */ }
         console.error(`Error from suggest skills function: ${errorText}`); throw new Error(errorText);
       }
       const data = await response.json();
@@ -527,27 +550,16 @@ export default function EditResumePage() {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value; setEditedName(newValue); debouncedUpdateField('resumeName', newValue);
   };
-  const handleClearContactInfo = () => {
-    // Clear local state
-    setContactEmail(''); setContactPhone(''); setContactLinkedin(''); setContactPortfolio(''); setContactLocation('');
-    // Trigger debounced saves for each cleared field
-    debouncedUpdateField('contact.email', '');
-    debouncedUpdateField('contact.phone', '');
-    debouncedUpdateField('contact.linkedin', '');
-    debouncedUpdateField('contact.portfolio', '');
-    debouncedUpdateField('contact.location', '');
-    toast.info('Contact fields cleared.');
-  };
 
 
   // --- Render Logic ---
   if (isLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-16 w-16 animate-spin" /></div>;
   if (!resumeData) return <div className="p-6 text-center text-red-500">Resume not found or access error. <Button variant="link" onClick={() => router.push('/dashboard/resume')}>Go Back</Button></div>;
 
-
   // Ensure resumeData is not null before passing to PDF component
   const currentResumeDataForPdf: Resume = {
     id: resumeId,
+    userId: resumeData.userId, // Add missing required userId field
     resumeName: editedName,
     contact: { email: contactEmail, phone: contactPhone, location: contactLocation, linkedin: contactLinkedin, portfolio: contactPortfolio },
     summary: summary,
