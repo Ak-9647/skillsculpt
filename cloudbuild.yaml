@@ -1,5 +1,5 @@
 steps:
-  # Step 0: Create secret files for Firebase config (No change needed)
+  # Step 0: Create secret files for Firebase config
   - name: 'ubuntu'
     id: 'Create Secret Files'
     entrypoint: 'bash'
@@ -22,7 +22,7 @@ steps:
       - 'FIREBASE_MESSAGING_SENDER_ID'
       - 'FIREBASE_APP_ID'
 
-  # Step 1: Build the Frontend Docker image (No change needed)
+  # Step 1: Build the Frontend Docker image (using Dockerfile in .)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build Frontend Image'
     waitFor: ['Create Secret Files']
@@ -34,66 +34,77 @@ steps:
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
       - '--platform'
       - 'linux/amd64'
-      - '.' # Assumes Dockerfile is in the root
+      - '.' # Assumes Dockerfile is in the current directory (skillsculpt-app)
 
-  # Step 2: Push the Frontend Docker image (No change needed)
+  # Step 2: Push the Frontend Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push Frontend Image'
     waitFor: ['Build Frontend Image']
     args:
       - 'push'
-      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}' # Pushes both tags (latest and SHA)
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}'
 
-  # *** NEW Step 3: Deploy the Cloud Function to us-central1 ***
+  # Step 3: Deploy the enhance-resume-text Cloud Function to us-central1
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'Deploy AI Function'
+    id: 'Deploy Enhance Function'
     args:
       - 'functions'
       - 'deploy'
-      - 'enhance-resume-text' # Deploying with the final name
+      - 'enhance-resume-text'
       - '--gen2'
-      - '--runtime=nodejs22'
-      - '--region=us-central1' # <<< Deploying to us-central1
-      - '--source=./enhance-resume-text' # <<< Specify source sub-directory
+      - '--runtime=nodejs20' # <<< CORRECTED RUNTIME
+      - '--region=us-central1'
+      - '--source=./enhance-resume-text'
       - '--entry-point=enhanceResumeText'
       - '--trigger-http'
       - '--allow-unauthenticated'
-      - '--service-account=62486276154-compute@developer.gserviceaccount.com' # <<< Use correct SA email
+      - '--service-account=62486276154-compute@developer.gserviceaccount.com'
       - '--project=$PROJECT_ID'
 
-  # Step 4 (Original Step 3): Deploy the Frontend image to Cloud Run
+  # Step 4: Deploy the suggest-resume-skills Cloud Function to us-central1
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy Suggest Function' # <<< NEW STEP
+    args:
+      - 'functions'
+      - 'deploy'
+      - 'suggest-resume-skills'
+      - '--gen2'
+      - '--runtime=nodejs20' # <<< CORRECTED RUNTIME
+      - '--region=us-central1'
+      - '--source=./suggest-resume-skills'
+      - '--entry-point=suggestResumeSkills'
+      - '--trigger-http'
+      - '--allow-unauthenticated'
+      - '--service-account=62486276154-compute@developer.gserviceaccount.com'
+      - '--project=$PROJECT_ID'
+
+  # Step 5: Deploy the Frontend image to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Deploy Frontend Service'
-    waitFor: ['Push Frontend Image', 'Deploy AI Function'] # Wait for push and function deploy
+    # *** UPDATED waitFor ***
+    waitFor: ['Push Frontend Image', 'Deploy Enhance Function', 'Deploy Suggest Function']
     args:
       - 'run'
       - 'deploy'
-      - '${_SERVICE_NAME}' # Uses substitution 'skillsculpt-app'
+      - '${_SERVICE_NAME}'
       - '--image'
-      # Use specific SHA tag for deployment image, latest is ambiguous
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--region'
-      - '${_CLOUD_RUN_REGION}' # Uses substitution 'us-west2'
+      - '${_CLOUD_RUN_REGION}'
       - '--platform'
       - 'managed'
       - '--project=$PROJECT_ID'
-      # '--allow-unauthenticated' # Keep this commented if you want default auth
-      # *** ADDED: Pass Function URL to Frontend Service ***
+      # '--allow-unauthenticated'
+      # *** UPDATED set-env-vars ***
       - '--set-env-vars'
-      # Note: Construct the known URL for the function deployed in Step 3
-      # URL format: https://<function-name>-<project-hash>-<region-code>.a.run.app
-      # Replace <project-hash> with the unique hash for your project/region (find from deployed URL)
-      # OR ideally, find a way to dynamically get the URL from Step 3 output if needed.
-      # For now, hardcoding the known *working* URL is simplest:
-      - '^#^NEXT_PUBLIC_ENHANCE_FUNCTION_URL=https://enhance-resume-text-sirxstvtva-uc.a.run.app' # <<< Use the final function name and region
-      # The ^#^ is used to allow commas in env var values if needed
+      - '^#^NEXT_PUBLIC_ENHANCE_FUNCTION_URL=https://enhance-resume-text-sirxstvtva-uc.a.run.app#NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=https://suggest-resume-skills-sirxstvtva-uc.a.run.app'
 
-# images section (No change needed)
+# images section
 images:
   - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
   - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
 
-# availableSecrets section (No change needed)
+# availableSecrets section
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
@@ -109,16 +120,16 @@ availableSecrets:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: 'FIREBASE_APP_ID'
 
-# substitutions section (No change needed)
+# substitutions section
 substitutions:
   _SERVICE_NAME: skillsculpt-app
   _CLOUD_RUN_REGION: us-west2
   _ARTIFACT_REGISTRY_REGION: us-west2
   _ARTIFACT_REPO_NAME: skillsculpt-repo
 
-# timeout section (No change needed)
+# timeout section
 timeout: '1200s' # 20 minutes
 
-# options section (No change needed)
+# options section
 options:
   logging: CLOUD_LOGGING_ONLY

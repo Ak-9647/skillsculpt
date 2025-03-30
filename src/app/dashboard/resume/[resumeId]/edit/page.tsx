@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PDFDownloadLink } from '@react-pdf/renderer';
-import ResumePDFDocument from '@/components/pdf/ResumePDFDocument';
+import ResumePDFDocument from '@/components/pdf/ResumePDFDocument'; // Assuming path is correct
 import {
   Dialog,
   DialogContent,
@@ -27,24 +27,24 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { db } from '@/lib/firebase/config';
-import { 
-  doc, 
-  getDoc, 
+import { db } from '@/lib/firebase/config'; // Assuming path is correct
+import {
+  doc,
+  getDoc,
   updateDoc,
-  serverTimestamp, 
-  Timestamp 
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { auth } from '@/lib/firebase/config';
+import { auth } from '@/lib/firebase/config'; // Assuming path is correct
 import { getIdToken } from 'firebase/auth';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui/tooltip"; // Assuming path is correct
 import debounce from 'lodash/debounce';
 import {
   Select,
@@ -52,69 +52,55 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"; // Assuming path is correct
 
-export interface ExperienceEntry {
-  id: string;
-  jobTitle: string;
-  company: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-}
+// Ensure your types path is correct
+// You might need to adjust this import path
+import { Resume, ExperienceEntry, EducationEntry, Contact, ResumeUpdate } from '@/types/resume'; 
 
-export interface EducationEntry {
-  id: string;
-  schoolName: string;
-  degree: string;
-  fieldOfStudy?: string;
-  startDate: string;
-  endDate: string;
-  notes?: string;
-}
+// Interfaces should ideally be defined in or imported from types/resume.ts
+// export interface ExperienceEntry { id: string; jobTitle: string; ... }
+// export interface EducationEntry { id: string; schoolName: string; ... }
+// export interface Resume { id: string; resumeName: string; ... }
 
-export interface Resume {
-  id: string;
-  resumeName: string;
-  contact: {
-    email?: string;
-    phone?: string;
-    location?: string;
-    linkedin?: string;
-    portfolio?: string;
-  };
-  summary?: string;
-  experience: ExperienceEntry[];
-  education: EducationEntry[];
-  skills: string[];
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
 
 export default function EditResumePage() {
   const params = useParams();
   const router = useRouter();
   const resumeId = typeof params.resumeId === 'string' ? params.resumeId : '';
+
+  // Resume Data State
   const [resumeData, setResumeData] = useState<Resume | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [editedName, setEditedName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving' | 'Error'>('Saved');
   const [experience, setExperience] = useState<ExperienceEntry[]>([]);
   const [education, setEducation] = useState<EducationEntry[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
+  const [summary, setSummary] = useState('');
+  const [editedName, setEditedName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactLinkedin, setContactLinkedin] = useState('');
+  const [contactPortfolio, setContactPortfolio] = useState('');
+  const [contactLocation, setContactLocation] = useState('');
+
+  // Loading / Saving States
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false); // For main save button
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving' | 'Error'>('Saved'); // For auto-save feedback
+
+  // Modal States
   const [isAddExpModalOpen, setIsAddExpModalOpen] = useState(false);
   const [isAddEduModalOpen, setIsAddEduModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ExperienceEntry | null>(null);
   const [editingEduEntry, setEditingEduEntry] = useState<EducationEntry | null>(null);
-  
-  // New state variables for the experience form
+
+  // Experience Form State
   const [newJobTitle, setNewJobTitle] = useState('');
   const [newCompany, setNewCompany] = useState('');
   const [newStartDate, setNewStartDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
   const [newDescription, setNewDescription] = useState('');
 
-  // State variables for education form
+  // Education Form State
   const [newSchoolName, setNewSchoolName] = useState('');
   const [newDegree, setNewDegree] = useState('');
   const [newFieldOfStudy, setNewFieldOfStudy] = useState('');
@@ -122,42 +108,50 @@ export default function EditResumePage() {
   const [newEduEndDate, setNewEduEndDate] = useState('');
   const [newEduNotes, setNewEduNotes] = useState('');
 
-  const [skills, setSkills] = useState<string[]>([]);
+  // Skills State
   const [newSkill, setNewSkill] = useState('');
-  const [summary, setSummary] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactLinkedin, setContactLinkedin] = useState('');
-  const [contactPortfolio, setContactPortfolio] = useState('');
-  const [contactLocation, setContactLocation] = useState('');
-  const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // AI Feature States
+  const [isEnhancing, setIsEnhancing] = useState(false); // For experience description
   const [isEnhancingSummary, setIsEnhancingSummary] = useState(false);
   const [isSuggestingSkills, setIsSuggestingSkills] = useState(false);
   const [suggestedSkills, setSuggestedSkills] = useState<string[]>([]);
   const [suggestSkillsError, setSuggestSkillsError] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<'classic'>('classic');
 
-  // Create debounced update function
+  // PDF Template State
+  const [selectedTemplate, setSelectedTemplate] = useState<'classic'>('classic'); // Simplified for now
+
+
+  // --- Debounced Auto-Save ---
   const debouncedUpdateField = useMemo(
     () =>
-      debounce(async (fieldName: string, value: any) => {
+      debounce(async (fieldName: string, value: unknown) => { // Use unknown for value type safety
         if (!resumeId) return;
+        // Basic check for serializable types (string, array, simple object)
+        if (typeof value !== 'string' && !Array.isArray(value) && typeof value !== 'object') {
+            console.warn(`Auto-save skipped for field ${fieldName}: Non-serializable value type ${typeof value}`);
+            return;
+        }
 
+        console.log(`Auto-saving field: ${fieldName}`);
         setAutoSaveStatus('Saving');
         try {
           const docRef = doc(db, 'resumes', resumeId);
+          // Ensure value is trimmed if it's a string before saving
+          const valueToSave = typeof value === 'string' ? value.trim() : value;
           await updateDoc(docRef, {
-            [fieldName]: value,
+            [fieldName]: valueToSave,
             updatedAt: serverTimestamp()
           });
           setAutoSaveStatus('Saved');
-        } catch (error) {
+        } catch (error: unknown) { // *** FIXED: Use unknown ***
           console.error(`Error auto-saving ${fieldName}:`, error);
           setAutoSaveStatus('Error');
-          toast.error(`Failed to auto-save ${fieldName}`);
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          toast.error(`Failed to auto-save ${fieldName}: ${message}`);
         }
-      }, 1500),
-    [resumeId]
+      }, 1500), // 1.5 second delay
+    [resumeId] // Dependency array includes resumeId
   );
 
   // Cleanup debounced function on unmount
@@ -167,1188 +161,581 @@ export default function EditResumePage() {
     };
   }, [debouncedUpdateField]);
 
+
+  // --- Fetch Initial Data ---
   useEffect(() => {
     if (!resumeId) {
       setIsLoading(false);
+      toast.error("Invalid Resume ID.");
+      router.push('/dashboard/resume');
       return;
     }
-
     setIsLoading(true);
-
     const fetchResumeData = async () => {
       try {
         const docRef = doc(db, 'resumes', resumeId);
         const docSnap = await getDoc(docRef);
-
         if (docSnap.exists()) {
           const fetchedData = docSnap.data();
-          setResumeData({ id: docSnap.id, ...fetchedData } as Resume);
-          setExperience(fetchedData.experience || []);
-          setEducation(fetchedData.education || []);
-          setSkills(fetchedData.skills || []);
-          setSummary(fetchedData.summary || '');
-          
-          // Load contact information
-          if (fetchedData.contact) {
-            setContactEmail(fetchedData.contact.email || '');
-            setContactPhone(fetchedData.contact.phone || '');
-            setContactLinkedin(fetchedData.contact.linkedin || '');
-            setContactPortfolio(fetchedData.contact.portfolio || '');
-            setContactLocation(fetchedData.contact.location || '');
-          } else {
-            // Reset contact fields if contact object is missing
-            setContactEmail('');
-            setContactPhone('');
-            setContactLinkedin('');
-            setContactPortfolio('');
-            setContactLocation('');
-          }
+          const data = { id: docSnap.id, ...fetchedData } as Resume;
+          setResumeData(data);
+          setExperience(data.experience || []);
+          setEducation(data.education || []);
+          setSkills(data.skills || []);
+          setSummary(data.summary || '');
+          setEditedName(data.resumeName || '');
+          setContactEmail(data.contact?.email || '');
+          setContactPhone(data.contact?.phone || '');
+          setContactLinkedin(data.contact?.linkedin || '');
+          setContactPortfolio(data.contact?.portfolio || '');
+          setContactLocation(data.contact?.location || '');
+          // setSelectedTemplate(data.templatePreference || 'classic'); // Add when saving preference
         } else {
           console.log('No such document!');
+          toast.error("Resume not found.");
           setResumeData(null);
-          setExperience([]);
-          setEducation([]);
-          setSkills([]);
-          setSummary('');
-          // Reset contact fields if document doesn't exist
-          setContactEmail('');
-          setContactPhone('');
-          setContactLinkedin('');
-          setContactPortfolio('');
-          setContactLocation('');
+          router.push('/dashboard/resume');
         }
-      } catch (error) {
+      } catch (error: unknown) { // *** FIXED: Use unknown ***
         console.error('Error fetching resume:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        toast.error(`Error fetching resume: ${message}`);
         setResumeData(null);
-        setExperience([]);
-        setEducation([]);
-        setSkills([]);
-        setSummary('');
-        // Reset contact fields on error
-        setContactEmail('');
-        setContactPhone('');
-        setContactLinkedin('');
-        setContactPortfolio('');
-        setContactLocation('');
+        // Optionally redirect on fetch error too
+        // router.push('/dashboard/resume'); 
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchResumeData();
-  }, [resumeId]);
+  }, [resumeId, router]);
 
+
+  // Update editedName from resumeData if resumeData loads/changes
   useEffect(() => {
-    if (resumeData) {
+    if (resumeData && !editedName) { // Only set initially or if cleared
       setEditedName(resumeData.resumeName);
     }
-  }, [resumeData]);
+  }, [resumeData, editedName]);
 
+
+  // --- Save Handlers ---
+
+  // Main save button handler (primarily for arrays now, but saves all for consistency)
   const handleSaveChanges = async () => {
-    if (!resumeData || !resumeId) return;
+    if (!resumeData) return;
 
-    setIsSaving(true);
     try {
-      const docRef = doc(db, 'resumes', resumeId);
+      setAutoSaveStatus('Saving');
+      const resumeRef = doc(db, 'resumes', resumeId as string);
       
-      // Construct contact data object
-      const contactData = {
-        email: contactEmail.trim(),
-        phone: contactPhone.trim(),
-        linkedin: contactLinkedin.trim(),
-        portfolio: contactPortfolio.trim(),
-        location: contactLocation.trim(),
+      const contact: Contact = {
+        email: contactEmail,
+        phone: contactPhone,
+        linkedin: contactLinkedin,
+        portfolio: contactPortfolio,
+        location: contactLocation,
       };
 
-      await updateDoc(docRef, {
-        resumeName: editedName.trim(),
-        experience: experience,
-        education: education,
-        skills: skills,
-        summary: summary,
-        contact: contactData, // Add contact object
-        updatedAt: serverTimestamp()
-      });
-      toast.success('Resume changes saved.');
-      setResumeData({
-        ...resumeData,
+      const update: ResumeUpdate = {
         resumeName: editedName,
-        experience: experience,
-        education: education,
-        skills: skills,
-        summary: summary,
-        contact: contactData // Update local resumeData with current contact
+        contact,
+        summary,
+        experience,
+        education,
+        skills,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(resumeRef, update);
+      setAutoSaveStatus('Saved');
+      toast.success('Changes saved successfully');
+
+      // Update local state while preserving all required fields
+      setResumeData(prevData => {
+        if (!prevData) return null;
+        const updatedResume: Resume = {
+          id: prevData.id,
+          userId: prevData.userId || auth.currentUser?.uid || '',
+          resumeName: editedName,
+          contact,
+          summary,
+          experience,
+          education,
+          skills,
+          templatePreference: prevData.templatePreference || 'classic',
+          createdAt: prevData.createdAt || Timestamp.now(),
+          updatedAt: Timestamp.now()
+        };
+        return updatedResume;
       });
-    } catch (error) {
-      console.error('Error updating resume:', error);
-      toast.error('Failed to save changes.');
-    } finally {
-      setIsSaving(false);
+    } catch (error: unknown) {
+      console.error('Error saving changes:', error);
+      setAutoSaveStatus('Error');
+      const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error(`Failed to save changes: ${message}`);
     }
   };
 
+
+  // Experience save handler (saves directly from modal)
   const handleSaveExperience = async () => {
-    // Basic validation
-    if (!newJobTitle.trim() || !newCompany.trim()) {
-      toast.warning('Job title and company are required.');
-      return;
-    }
-
+    if (!newJobTitle.trim() || !newCompany.trim()) { toast.warning('Job title and company are required.'); return; }
     let finalExperienceArray: ExperienceEntry[];
-    
     if (editingEntry) {
-      // Edit mode
-      const updatedEntry = {
-        jobTitle: newJobTitle.trim(),
-        company: newCompany.trim(),
-        startDate: newStartDate.trim(),
-        endDate: newEndDate.trim(),
-        description: newDescription.trim()
-      };
-
-      finalExperienceArray = experience.map(exp =>
-        exp.id === editingEntry.id ? { ...updatedEntry, id: editingEntry.id } : exp
-      );
+      finalExperienceArray = experience.map(exp => exp.id === editingEntry.id ? { ...editingEntry, jobTitle: newJobTitle.trim(), company: newCompany.trim(), startDate: newStartDate.trim(), endDate: newEndDate.trim(), description: newDescription.trim() } : exp );
     } else {
-      // Add mode
-      const newEntry: ExperienceEntry = {
-        id: Date.now().toString(),
-        jobTitle: newJobTitle.trim(),
-        company: newCompany.trim(),
-        startDate: newStartDate.trim(),
-        endDate: newEndDate.trim(),
-        description: newDescription.trim()
-      };
+      const newEntry: ExperienceEntry = { id: Date.now().toString(), jobTitle: newJobTitle.trim(), company: newCompany.trim(), startDate: newStartDate.trim(), endDate: newEndDate.trim(), description: newDescription.trim() };
       finalExperienceArray = [...experience, newEntry];
     }
-
     try {
-      await updateDoc(doc(db, 'resumes', resumeId), {
-        experience: finalExperienceArray,
-        updatedAt: serverTimestamp()
-      });
+      setIsSaving(true); // Use main saving indicator
+      await updateDoc(doc(db, 'resumes', resumeId), { experience: finalExperienceArray, updatedAt: serverTimestamp() });
       toast.success('Experience saved.');
       setExperience(finalExperienceArray);
-    } catch (error) {
-      console.error('Failed to save experience directly:', error);
-      toast.error('Failed to save experience.');
-      return;
+      setIsAddExpModalOpen(false); setEditingEntry(null);
+      setNewJobTitle(''); setNewCompany(''); setNewStartDate(''); setNewEndDate(''); setNewDescription('');
+    } catch (error: unknown) { // *** FIXED: Use unknown ***
+      console.error('Failed to save experience:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to save experience: ${message}`);
+    } finally {
+       setIsSaving(false);
     }
-
-    // Reset form fields and close modal
-    setNewJobTitle('');
-    setNewCompany('');
-    setNewStartDate('');
-    setNewEndDate('');
-    setNewDescription('');
-    setIsAddExpModalOpen(false);
-    setEditingEntry(null);
   };
 
+  // Delete Experience
   const handleDeleteExperience = async (entryIdToDelete: string) => {
     const updatedExperience = experience.filter(exp => exp.id !== entryIdToDelete);
-    
     try {
-      await updateDoc(doc(db, 'resumes', resumeId), {
-        experience: updatedExperience,
-        updatedAt: serverTimestamp()
-      });
+      setIsSaving(true);
+      await updateDoc(doc(db, 'resumes', resumeId), { experience: updatedExperience, updatedAt: serverTimestamp() });
       toast.success('Experience entry deleted.');
       setExperience(updatedExperience);
-    } catch (error) {
+    } catch (error: unknown) { // *** FIXED: Use unknown ***
       console.error('Failed to delete experience:', error);
-      toast.error('Failed to delete experience.');
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to delete experience: ${message}`);
+    } finally {
+       setIsSaving(false);
     }
   };
 
+
+  // Education save handler (saves directly from modal)
   const handleSaveEducationEntry = async () => {
-    // Basic validation
-    if (!newSchoolName.trim() || !newDegree.trim()) {
-      toast.warning('School name and degree are required.');
-      return;
-    }
-
+    if (!newSchoolName.trim() || !newDegree.trim()) { toast.warning('School name and degree are required.'); return; }
     let finalEducationArray: EducationEntry[];
-    
     if (editingEduEntry) {
-      // Edit mode
-      const updatedEduEntry = {
-        schoolName: newSchoolName.trim(),
-        degree: newDegree.trim(),
-        fieldOfStudy: newFieldOfStudy.trim(),
-        startDate: newEduStartDate.trim(),
-        endDate: newEduEndDate.trim(),
-        notes: newEduNotes.trim()
-      };
-
-      finalEducationArray = education.map(edu =>
-        edu.id === editingEduEntry.id ? { ...updatedEduEntry, id: editingEduEntry.id } : edu
-      );
+      finalEducationArray = education.map(edu => edu.id === editingEduEntry.id ? { ...editingEduEntry, schoolName: newSchoolName.trim(), degree: newDegree.trim(), fieldOfStudy: newFieldOfStudy.trim(), startDate: newEduStartDate.trim(), endDate: newEduEndDate.trim(), notes: newEduNotes.trim() } : edu );
     } else {
-      // Add mode
-      const newEduEntry: EducationEntry = {
-        id: Date.now().toString(),
-        schoolName: newSchoolName.trim(),
-        degree: newDegree.trim(),
-        fieldOfStudy: newFieldOfStudy.trim(),
-        startDate: newEduStartDate.trim(),
-        endDate: newEduEndDate.trim(),
-        notes: newEduNotes.trim()
-      };
+      const newEduEntry: EducationEntry = { id: Date.now().toString(), schoolName: newSchoolName.trim(), degree: newDegree.trim(), fieldOfStudy: newFieldOfStudy.trim(), startDate: newEduStartDate.trim(), endDate: newEduEndDate.trim(), notes: newEduNotes.trim() };
       finalEducationArray = [...education, newEduEntry];
     }
-
     try {
-      await updateDoc(doc(db, 'resumes', resumeId), {
-        education: finalEducationArray,
-        updatedAt: serverTimestamp()
-      });
+      setIsSaving(true);
+      await updateDoc(doc(db, 'resumes', resumeId), { education: finalEducationArray, updatedAt: serverTimestamp() });
       toast.success(editingEduEntry ? 'Education entry updated.' : 'Education entry added.');
       setEducation(finalEducationArray);
-      setEditingEduEntry(null);
-    } catch (error) {
+      setIsAddEduModalOpen(false); setEditingEduEntry(null);
+      setNewSchoolName(''); setNewDegree(''); setNewFieldOfStudy(''); setNewEduStartDate(''); setNewEduEndDate(''); setNewEduNotes('');
+    } catch (error: unknown) { // *** FIXED: Use unknown ***
       console.error('Failed to save education entry:', error);
-      toast.error('Failed to save education entry.');
-      return;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to save education entry: ${message}`);
+    } finally {
+        setIsSaving(false);
     }
-
-    // Reset form fields and close modal
-    setNewSchoolName('');
-    setNewDegree('');
-    setNewFieldOfStudy('');
-    setNewEduStartDate('');
-    setNewEduEndDate('');
-    setNewEduNotes('');
-    setIsAddEduModalOpen(false);
   };
 
+  // Delete Education
   const handleDeleteEducation = async (entryIdToDelete: string) => {
     const updatedEducation = education.filter(edu => edu.id !== entryIdToDelete);
     try {
-      await updateDoc(doc(db, 'resumes', resumeId), {
-        education: updatedEducation,
-        updatedAt: serverTimestamp()
-      });
-      setEducation(updatedEducation); // Update local state only on success
+      setIsSaving(true);
+      await updateDoc(doc(db, 'resumes', resumeId), { education: updatedEducation, updatedAt: serverTimestamp() });
+      setEducation(updatedEducation);
       toast.success('Education entry deleted.');
-    } catch (error) {
+    } catch (error: unknown) { // *** FIXED: Use unknown ***
       console.error('Failed to delete education entry:', error);
-      toast.error('Failed to delete education entry.');
-    }
-  };
-
-  const handleAddSkill = async () => {
-    const trimmedSkill = newSkill.trim();
-    if (!trimmedSkill) {
-      toast.warning('Skill cannot be empty.');
-      return;
-    }
-    if (skills.includes(trimmedSkill)) {
-      toast.warning('Skill already exists.');
-      return;
-    }
-    const updatedSkills = [...skills, trimmedSkill];
-    try {
-      setSkills(updatedSkills); // Update local state immediately
-      setNewSkill(''); // Clear input field
-      debouncedUpdateField('skills', updatedSkills); // Use debounced update
-      toast.success('Skill added.');
-    } catch (error) {
-      console.error("Failed to add skill:", error);
-      toast.error('Failed to add skill.');
-    }
-  };
-
-  const handleDeleteSkill = async (skillToDelete: string) => {
-    const updatedSkills = skills.filter(skill => skill !== skillToDelete);
-    try {
-      setSkills(updatedSkills); // Update local state immediately
-      debouncedUpdateField('skills', updatedSkills); // Use debounced update
-      toast.success('Skill removed.');
-    } catch (error) {
-      console.error("Failed to delete skill:", error);
-      toast.error('Failed to delete skill.');
-    }
-  };
-
-  const handleSuggestSkills = async () => {
-    console.log('Suggest Skills button clicked');
-    // Prevent running if suggestions are already being fetched
-    if (isSuggestingSkills) return;
-
-    // Reset states
-    setIsSuggestingSkills(true);
-    setSuggestSkillsError(null);
-    setSuggestedSkills([]);
-    toast.info('Gathering context for skill suggestions...');
-
-    // Get the function URL from environment variable
-    const functionUrl = process.env.NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL;
-    
-    // Validate URL
-    if (!functionUrl) {
-      console.error('Suggest skills function URL not configured');
-      setSuggestSkillsError('Suggest skills function URL not configured');
-      setIsSuggestingSkills(false);
-      return;
-    }
-
-    // 1. Get context from existing state
-    const currentSkills = skills;
-    const currentSummary = summary;
-    const jobTitles = experience.map(exp => exp.jobTitle).filter(title => !!title);
-    const jobDescriptions = experience.map(exp => exp.description).filter(desc => !!desc);
-
-    // Prepare context object
-    const context = {
-      summary: currentSummary,
-      jobTitles,
-      jobDescriptions,
-      existingSkills: currentSkills
-    };
-
-    console.log('Context for suggestions:', context);
-    console.log('Using function URL:', functionUrl);
-
-    try {
-      // Get auth token
-      if (!auth.currentUser) {
-        throw new Error('Authentication error. Please log in.');
-      }
-      const token = await getIdToken(auth.currentUser);
-
-      // Make API call
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(context),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Function returned error:', errorText);
-        throw new Error(`Request failed: ${response.statusText} (${response.status})`);
-      }
-
-      const data = await response.json();
-      console.log('Received suggestions:', data.suggestedSkills);
-      
-      if (data.suggestedSkills) {
-        setSuggestedSkills(data.suggestedSkills);
-        toast.success('Skill suggestions received!');
-      } else {
-        throw new Error('Invalid response structure from AI function.');
-      }
-
-    } catch (error: any) {
-      console.error('Error suggesting skills:', error);
-      setSuggestSkillsError(error.message || 'An unknown error occurred');
-      toast.error(`Failed to get suggestions: ${error.message || 'Unknown error'}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to delete education entry: ${message}`);
     } finally {
-      setIsSuggestingSkills(false);
+       setIsSaving(false);
     }
   };
 
-  const handleAddSuggestedSkill = (skill: string) => {
+
+  // Skills handlers (use auto-save via debounce)
+  const handleAddSkill = () => { // Made non-async as update is debounced
+    const trimmedSkill = newSkill.trim();
+    if (!trimmedSkill) { toast.warning('Skill cannot be empty.'); return; }
+    if (skills.includes(trimmedSkill)) { toast.warning('Skill already exists.'); return; }
+    const updatedSkills = [...skills, trimmedSkill];
+    setSkills(updatedSkills); // Update local state immediately
+    setNewSkill(''); // Clear input field
+    debouncedUpdateField('skills', updatedSkills); // Trigger auto-save
+    toast.success('Skill added.'); // Optimistic UI update
+  };
+
+  const handleDeleteSkill = (skillToDelete: string) => { // Made non-async
+    const updatedSkills = skills.filter(skill => skill !== skillToDelete);
+    setSkills(updatedSkills); // Update local state immediately
+    debouncedUpdateField('skills', updatedSkills); // Trigger auto-save
+    toast.success('Skill removed.'); // Optimistic UI update
+  };
+
+  const handleAddSuggestedSkill = (skill: string) => { // Made non-async
     if (!skills.includes(skill)) {
       const updatedSkills = [...skills, skill];
-      setSkills(updatedSkills); // Update local state immediately
+      setSkills(updatedSkills);
       setSuggestedSkills(prev => prev.filter(s => s !== skill));
-      debouncedUpdateField('skills', updatedSkills); // Use debounced update
+      debouncedUpdateField('skills', updatedSkills); // Trigger auto-save
       toast.success(`Added skill: ${skill}`);
     } else {
       toast.info('Skill already exists');
     }
   };
 
-  const handleClearContactInfo = () => {
-    setContactEmail('');
-    setContactPhone('');
-    setContactLinkedin('');
-    setContactPortfolio('');
-    setContactLocation('');
-    toast.info('Contact fields cleared locally. Click Save to persist.');
+
+  // --- AI Feature Handlers ---
+
+  const handleSuggestSkills = async () => {
+    console.log('Suggest Skills button clicked');
+    if (isSuggestingSkills) return;
+    setIsSuggestingSkills(true); setSuggestSkillsError(null); setSuggestedSkills([]);
+    toast.info('Gathering context for skill suggestions...');
+    const functionUrl = process.env.NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL;
+    if (!functionUrl) {
+      const errorMsg = 'Suggest skills function URL not configured';
+      console.error(errorMsg); setSuggestSkillsError(errorMsg); setIsSuggestingSkills(false); return;
+    }
+    const context = { summary: summary || '', jobTitles: experience.map(exp => exp.jobTitle || ''), jobDescriptions: experience.map(exp => exp.description || ''), existingSkills: skills || [] };
+    console.log('Context for suggestions:', context);
+    const bodyString = JSON.stringify(context);
+    console.log('Stringified body being sent:', bodyString);
+    try {
+      JSON.parse(bodyString); console.log('Body context appears to be valid JSON.');
+    } catch (stringifyError: unknown) { // *** FIXED: Use unknown ***
+        const message = stringifyError instanceof Error ? stringifyError.message : 'Unknown parse error';
+        const errorMsg = `Internal error: Invalid context data cannot be sent. (${message})`;
+        console.error('ERROR: Body context is NOT valid JSON!', stringifyError);
+        setSuggestSkillsError(errorMsg); setIsSuggestingSkills(false); return;
+    }
+    console.log(`Calling suggest skills function at: ${functionUrl}`); // *** FIXED: Use functionUrl ***
+    try {
+      if (!auth.currentUser) { throw new Error('Authentication error. Please log in.'); }
+      const token = await getIdToken(auth.currentUser);
+      const response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: bodyString });
+      if (!response.ok) {
+        let errorText = `HTTP error! Status: ${response.status}`;
+        try { const backendError = await response.text(); errorText += ` - ${backendError}`; } catch (textError) { /* ignore */ }
+        console.error(`Error from suggest skills function: ${errorText}`); throw new Error(errorText);
+      }
+      const data = await response.json();
+      console.log('Received suggestions:', data.suggestedSkills);
+      if (data.suggestedSkills && Array.isArray(data.suggestedSkills)) { // Add type check
+        setSuggestedSkills(data.suggestedSkills); toast.success('Skill suggestions received!');
+      } else { throw new Error('Invalid response structure from AI function.'); }
+    } catch (error: unknown) { // *** FIXED: Use unknown ***
+      console.error('Error suggesting skills:', error);
+      const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      setSuggestSkillsError(message); toast.error(`Failed to get suggestions: ${message}`);
+    } finally {
+      setIsSuggestingSkills(false);
+    }
   };
+
 
   const handleEnhanceDescription = async () => {
     const currentDescription = newDescription.trim();
-
-    if (!currentDescription) {
-      toast.info('Please enter a description first.');
-      return;
-    }
-    if (!auth.currentUser) {
-      toast.error('Authentication error. Please ensure you are logged in.');
-      return;
-    }
-
+    if (!currentDescription) { toast.info('Please enter a description first.'); return; }
+    if (!auth.currentUser) { toast.error('Authentication error.'); return; }
     setIsEnhancing(true);
     try {
       const token = await getIdToken(auth.currentUser);
-      const functionUrl = 'https://enhance-resume-text-central1-test-sirxstvtva-uc.a.run.app';
+      const functionUrl = process.env.NEXT_PUBLIC_ENHANCE_FUNCTION_URL;
+      if (!functionUrl) throw new Error("Enhance function URL not configured");
 
-      console.log('Calling enhance function at:', functionUrl);
-      console.log('Sending description:', currentDescription);
-
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ promptText: currentDescription }),
-      });
-
+      console.log('Calling enhance function at:', functionUrl); console.log('Sending description:', currentDescription);
+      const response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ promptText: currentDescription }) });
       console.log('Function response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Function returned error:', errorText);
-        throw new Error(`Request failed: ${response.statusText} (${response.status})`);
-      }
-
+      if (!response.ok) { const errorText = await response.text(); throw new Error(`Request failed: ${response.status} ${errorText}`); }
       const data = await response.json();
-
-      if (data.enhancedText) {
-        setNewDescription(data.enhancedText);
-        toast.success('Description enhanced!');
-      } else {
-        console.error('Invalid response structure:', data);
-        throw new Error('Invalid response structure from AI function.');
-      }
-
-    } catch (error: Error | unknown) {
+      if (data.enhancedText) { setNewDescription(data.enhancedText); toast.success('Description enhanced!'); }
+      else { console.error('Invalid response structure:', data); throw new Error('Invalid response structure from AI function.'); }
+    } catch (error: unknown) { // *** FIXED: Use unknown ***
       console.error('Error calling enhance function:', error);
-      toast.error(`Failed to enhance description: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to enhance description: ${message}`);
     } finally {
       setIsEnhancing(false);
     }
   };
 
+
   const handleEnhanceSummary = async () => {
     const currentSummary = summary?.trim();
-    if (!currentSummary) {
-      toast.error('Please enter a summary to enhance');
-      return;
-    }
-
-    if (!auth.currentUser) {
-      toast.error('Please sign in to use AI enhancement');
-      return;
-    }
-
+    if (!currentSummary) { toast.error('Please enter a summary to enhance'); return; }
+    if (!auth.currentUser) { toast.error('Please sign in first'); return; }
     setIsEnhancingSummary(true);
     try {
       const token = await getIdToken(auth.currentUser);
-      const functionUrl = 'https://enhance-resume-text-central1-test-sirxstvtva-uc.a.run.app';
+      const functionUrl = process.env.NEXT_PUBLIC_ENHANCE_FUNCTION_URL;
+      if (!functionUrl) throw new Error("Enhance function URL not configured");
 
       console.log('Calling enhance function at:', functionUrl);
-      
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          promptText: currentSummary
-        }),
-      });
-
+      const response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ promptText: currentSummary }) });
+      if (!response.ok) { const errorText = await response.text(); throw new Error(`Request failed: ${response.status} ${errorText}`); }
       const data = await response.json();
-      
       if (data.enhancedText) {
-        setSummary(data.enhancedText);
+        setSummary(data.enhancedText); // Update local state
+        debouncedUpdateField('summary', data.enhancedText); // Trigger auto-save
         toast.success('Summary enhanced successfully!');
-      } else {
-        console.error('Invalid response structure:', data);
-        throw new Error('Invalid response structure from AI function.');
-      }
-
-    } catch (error: Error | unknown) {
+      } else { console.error('Invalid response structure:', data); throw new Error('Invalid response structure from AI function.'); }
+    } catch (error: unknown) { // *** FIXED: Use unknown ***
       console.error('Error calling enhance function:', error);
-      toast.error(`Failed to enhance summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to enhance summary: ${message}`);
     } finally {
       setIsEnhancingSummary(false);
     }
   };
 
-  // Update the summary onChange handler
+
+  // --- Input Change Handlers with Debounce ---
   const handleSummaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setSummary(newValue);
     debouncedUpdateField('summary', newValue);
   };
-
-  // Update contact field handlers
   const handleContactEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setContactEmail(newValue);
-    debouncedUpdateField('contact.email', newValue);
+    const newValue = e.target.value; setContactEmail(newValue); debouncedUpdateField('contact.email', newValue);
   };
-
   const handleContactPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setContactPhone(newValue);
-    debouncedUpdateField('contact.phone', newValue);
+    const newValue = e.target.value; setContactPhone(newValue); debouncedUpdateField('contact.phone', newValue);
   };
-
   const handleContactLinkedinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setContactLinkedin(newValue);
-    debouncedUpdateField('contact.linkedin', newValue);
+    const newValue = e.target.value; setContactLinkedin(newValue); debouncedUpdateField('contact.linkedin', newValue);
   };
-
   const handleContactPortfolioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setContactPortfolio(newValue);
-    debouncedUpdateField('contact.portfolio', newValue);
+    const newValue = e.target.value; setContactPortfolio(newValue); debouncedUpdateField('contact.portfolio', newValue);
   };
-
   const handleContactLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setContactLocation(newValue);
-    debouncedUpdateField('contact.location', newValue);
+    const newValue = e.target.value; setContactLocation(newValue); debouncedUpdateField('contact.location', newValue);
+  };
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value; setEditedName(newValue); debouncedUpdateField('resumeName', newValue);
+  };
+  const handleClearContactInfo = () => {
+    // Clear local state
+    setContactEmail(''); setContactPhone(''); setContactLinkedin(''); setContactPortfolio(''); setContactLocation('');
+    // Trigger debounced saves for each cleared field
+    debouncedUpdateField('contact.email', '');
+    debouncedUpdateField('contact.phone', '');
+    debouncedUpdateField('contact.linkedin', '');
+    debouncedUpdateField('contact.portfolio', '');
+    debouncedUpdateField('contact.location', '');
+    toast.info('Contact fields cleared.');
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-theme(spacing.16))]">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-      </div>
-    );
-  }
 
-  if (!isLoading && !resumeData) {
-    return (
-      <div className="p-6 text-center text-red-600">
-        <h1 className="text-2xl font-semibold mb-4">Resume Not Found</h1>
-        <Button
-          variant="outline"
-          onClick={() => router.push('/dashboard/resume')}
-          className="mt-4"
-        >
-          Back to Resumes
-        </Button>
-      </div>
-    );
-  }
+  // --- Render Logic ---
+  if (isLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-16 w-16 animate-spin" /></div>;
+  if (!resumeData) return <div className="p-6 text-center text-red-500">Resume not found or access error. <Button variant="link" onClick={() => router.push('/dashboard/resume')}>Go Back</Button></div>;
+
+
+  // Ensure resumeData is not null before passing to PDF component
+  const currentResumeDataForPdf: Resume = {
+    id: resumeId,
+    resumeName: editedName,
+    contact: { email: contactEmail, phone: contactPhone, location: contactLocation, linkedin: contactLinkedin, portfolio: contactPortfolio },
+    summary: summary,
+    experience: experience,
+    education: education,
+    skills: skills,
+    createdAt: resumeData?.createdAt || Timestamp.now(), // Use existing or now()
+    updatedAt: Timestamp.now() // Use now() for generation time
+  };
+
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border p-8">
-        <Button
-          variant="outline"
-          className="mb-4"
-          onClick={() => router.push('/dashboard/resume')}
-        >
-          Back to Resumes
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+      <div className="bg-white rounded-lg shadow-sm border p-6 sm:p-8">
+        {/* Back Button */}
+        <Button variant="outline" size="sm" className="mb-4" onClick={() => router.push('/dashboard/resume')}>
+          &larr; Back to Resumes
         </Button>
 
-        <h1 className="text-2xl font-semibold mb-4">
-          Editing: {(resumeData as Resume).resumeName}
-        </h1>
-        <div className="space-y-4">
+        {/* Header: Name, Save, Template, Download */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-6 border-b pb-4">
+          {/* Resume Name Input */}
           <Input
             value={editedName}
-            onChange={(e) => setEditedName(e.target.value)}
+            onChange={handleNameChange} // Use specific handler with debounce
             placeholder="Enter resume name"
-            className="my-4"
+            className="text-xl font-semibold flex-grow" // Make name input prominent
           />
-          <div className="flex gap-2 items-center">
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleSaveChanges}
-                disabled={isSaving}
-                className="bg-primary hover:bg-primary/90"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {autoSaveStatus}
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="template-select" className="text-sm">Template:</Label>
-                <Select
-                  value={selectedTemplate}
-                  onValueChange={(value: 'classic') => {
-                    console.log('Template selection changed:', {
-                      previous: selectedTemplate,
-                      new: value,
-                      timestamp: new Date().toISOString()
-                    });
-                    setSelectedTemplate(value);
-                  }}
-                >
-                  <SelectTrigger id="template-select" className="w-[180px]">
-                    <SelectValue placeholder="Select template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="classic">Classic</SelectItem>
-                  </SelectContent>
-                </Select>
+          {/* Controls Group */}
+          <div className="flex gap-2 items-center self-start sm:self-center w-full sm:w-auto flex-wrap">
+              {/* Auto-Save Status */}
+              <span className="text-xs text-muted-foreground w-16 text-center order-last sm:order-first">{autoSaveStatus}</span>
+
+              {/* Main Save Button */}
+              <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                <Button onClick={handleSaveChanges} disabled={isSaving} size="icon" aria-label="Save all changes">
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>}
+                </Button>
+              </TooltipTrigger> <TooltipContent><p>Save All Changes</p></TooltipContent> </Tooltip> </TooltipProvider>
+
+              {/* Template Selector */}
+              <div className="flex items-center gap-1">
+                  <Label htmlFor="template-select" className="text-xs whitespace-nowrap">Template:</Label>
+                  <Select value={selectedTemplate} onValueChange={(value: 'classic') => setSelectedTemplate(value)}>
+                      <SelectTrigger id="template-select" className="w-auto h-9 text-xs"> <SelectValue /> </SelectTrigger>
+                      <SelectContent> <SelectItem value="classic">Classic</SelectItem> </SelectContent>
+                  </Select>
               </div>
-              {resumeData && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <PDFDownloadLink
-                        document={<ResumePDFDocument resume={resumeData} templateName={selectedTemplate} />}
-                        fileName={`${resumeData.resumeName || 'resume'}.pdf`}
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                      >
-                        {({ loading }) => loading ? 'Loading document...' : 'Download PDF'}
-                      </PDFDownloadLink>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Download your resume as PDF</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
+
+              {/* PDF Download */}
+              <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                {/* Conditionally render Link only when resumeData is available */}
+                {resumeData ? (
+                  <PDFDownloadLink
+                    document={<ResumePDFDocument resume={currentResumeDataForPdf} templateName={selectedTemplate} />}
+                    fileName={`<span class="math-inline">\{editedName\.trim\(\)\.replace\(/\[^a\-z0\-9\]/gi, '\_'\) \|\| 'resume'\}\_</span>{selectedTemplate}.pdf`}
+                    onError={(error) => { console.error('PDF generation error:', error); toast.error('Failed to generate PDF.'); }}
+                  >
+                    {({ loading }) => (
+                      <Button variant="outline" size="icon" disabled={loading} aria-label="Download PDF">
+                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>}
+                      </Button>
+                    )}
+                  </PDFDownloadLink>
+                ) : (
+                   // Render disabled button if resumeData is null
+                   <Button variant="outline" size="icon" disabled={true} aria-label="Download PDF (Unavailable)">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                   </Button>
+                )}
+              </TooltipTrigger> <TooltipContent><p>Download PDF ({selectedTemplate})</p></TooltipContent> </Tooltip> </TooltipProvider>
           </div>
         </div>
 
-        <hr className="my-6" />
+        {/* Rest of the sections */}
         
-        <h2 className="text-xl font-semibold mb-4">Summary</h2>
-        <div className="space-y-2">
-          <Label>Summary</Label>
-          <Textarea
-            value={summary || ''}
-            onChange={handleSummaryChange}
-            placeholder="Enter a brief summary of your professional background"
-            className="h-32"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            className="mt-2"
-            onClick={handleEnhanceSummary}
-            disabled={isEnhancingSummary}
-          >
-            {isEnhancingSummary ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enhancing...
-              </>
-            ) : (
-              '✨ Enhance Summary with AI'
-            )}
-          </Button>
-        </div>
-
-        <hr className="my-6" />
+         <hr className="my-6" />
         
-        <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="space-y-1">
-            <Label htmlFor="contactEmail">Email</Label>
-            <Input 
-              id="contactEmail" 
-              type="email" 
-              placeholder="your.email@example.com" 
-              value={contactEmail} 
-              onChange={handleContactEmailChange}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="contactPhone">Phone</Label>
-            <Input 
-              id="contactPhone" 
-              placeholder="(123) 456-7890" 
-              value={contactPhone} 
-              onChange={handleContactPhoneChange}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="contactLinkedin">LinkedIn URL</Label>
-            <Input 
-              id="contactLinkedin" 
-              placeholder="linkedin.com/in/yourprofile" 
-              value={contactLinkedin} 
-              onChange={handleContactLinkedinChange}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="contactPortfolio">Portfolio URL</Label>
-            <Input 
-              id="contactPortfolio" 
-              placeholder="yourportfolio.com" 
-              value={contactPortfolio} 
-              onChange={handleContactPortfolioChange}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="contactLocation">Location</Label>
-            <Input 
-              id="contactLocation" 
-              placeholder="City, State or Remote" 
-              value={contactLocation} 
-              onChange={handleContactLocationChange}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            onClick={handleSaveChanges}
-            disabled={isSaving}
-            className="mt-4"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Contact Info'
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearContactInfo}
-            className="mt-4 ml-2"
-          >
-            Clear Contact Info
-          </Button>
-        </div>
+         <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+           <div className="space-y-1"> <Label htmlFor="contactEmail">Email</Label> <Input id="contactEmail" type="email" placeholder="your.email@example.com" value={contactEmail} onChange={handleContactEmailChange}/> </div>
+           <div className="space-y-1"> <Label htmlFor="contactPhone">Phone</Label> <Input id="contactPhone" placeholder="(123) 456-7890" value={contactPhone} onChange={handleContactPhoneChange}/> </div>
+           <div className="space-y-1"> <Label htmlFor="contactLinkedin">LinkedIn URL</Label> <Input id="contactLinkedin" placeholder="linkedin.com/in/yourprofile" value={contactLinkedin} onChange={handleContactLinkedinChange}/> </div>
+           <div className="space-y-1"> <Label htmlFor="contactPortfolio">Portfolio URL</Label> <Input id="contactPortfolio" placeholder="yourportfolio.com" value={contactPortfolio} onChange={handleContactPortfolioChange}/> </div>
+           <div className="space-y-1"> <Label htmlFor="contactLocation">Location</Label> <Input id="contactLocation" placeholder="City, State or Remote" value={contactLocation} onChange={handleContactLocationChange}/> </div>
+         </div>
+        
+         <hr className="my-6" />
+        
+         <h2 className="text-xl font-semibold mb-4">Summary</h2>
+         <div className="space-y-2">
+           <Textarea value={summary || ''} onChange={handleSummaryChange} placeholder="Enter a brief summary..." className="h-32"/>
+           <Button variant="outline" size="sm" type="button" onClick={handleEnhanceSummary} disabled={isEnhancingSummary}> {isEnhancingSummary ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enhancing...</> : '✨ Enhance Summary'} </Button>
+         </div>
 
         <hr className="my-6" />
         
         <h2 className="text-xl font-semibold mb-4">Work Experience</h2>
-        
-        {experience.length === 0 ? (
-          <p className="text-gray-500">No experience added yet.</p>
-        ) : (
-          <div className="space-y-4 mb-4">
-            {experience.map((entry) => (
-              <div 
-                key={entry.id}
-                className="p-4 border rounded-lg flex items-center justify-between"
-              >
-                <div>
-                  <h3 className="font-medium">{entry.jobTitle}</h3>
-                  <p className="text-gray-600">{entry.company}</p>
-                  <p className="text-sm text-gray-500">
-                    {entry.startDate} - {entry.endDate}
-                  </p>
-                </div>
-                <div className="space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setEditingEntry(entry);
-                      setNewJobTitle(entry.jobTitle);
-                      setNewCompany(entry.company);
-                      setNewStartDate(entry.startDate);
-                      setNewEndDate(entry.endDate);
-                      setNewDescription(entry.description);
-                      setIsAddExpModalOpen(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                      >
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete this
-                          experience entry.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDeleteExperience(entry.id)}>
-                          Continue
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            ))}
-          </div>
+        {experience.length === 0 ? <p className="text-muted-foreground text-sm">No experience added yet.</p> : (
+           <div className="space-y-4 mb-4"> {experience.map((entry) => ( <div key={entry.id} className="p-3 border rounded-lg flex items-start justify-between gap-4"> <div className="flex-grow"> <h3 className="font-medium">{entry.jobTitle}</h3> <p className="text-sm text-muted-foreground">{entry.company}</p> <p className="text-xs text-muted-foreground">{entry.startDate} - {entry.endDate}</p> </div> <div className="flex gap-1 flex-shrink-0"> <Button variant="outline" size="sm" onClick={() => { setEditingEntry(entry); setNewJobTitle(entry.jobTitle); setNewCompany(entry.company); setNewStartDate(entry.startDate); setNewEndDate(entry.endDate); setNewDescription(entry.description); setIsAddExpModalOpen(true); }}>Edit</Button> <AlertDialog> <AlertDialogTrigger asChild><Button variant="destructive" size="sm">Delete</Button></AlertDialogTrigger> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Are you sure?</AlertDialogTitle> <AlertDialogDescription>This will permanently delete this experience entry.</AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel>Cancel</AlertDialogCancel> <AlertDialogAction onClick={() => handleDeleteExperience(entry.id)}>Delete</AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog> </div> </div> ))} </div>
         )}
-
-        <Dialog 
-          open={isAddExpModalOpen} 
-          onOpenChange={(open) => {
-            setIsAddExpModalOpen(open);
-            if (!open) {
-              setEditingEntry(null);
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="mt-4"
-            >
-              Add Experience
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingEntry ? 'Edit Experience' : 'Add New Experience'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="jobTitle">Job Title</Label>
-                <Input 
-                  id="jobTitle" 
-                  placeholder="Software Engineer"
-                  value={newJobTitle}
-                  onChange={(e) => setNewJobTitle(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="company">Company</Label>
-                <Input 
-                  id="company" 
-                  placeholder="Tech Corp"
-                  value={newCompany}
-                  onChange={(e) => setNewCompany(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input 
-                    id="startDate" 
-                    placeholder="YYYY-MM"
-                    value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="endDate">End Date</Label>
-                  <Input 
-                    id="endDate" 
-                    placeholder="YYYY-MM or Present"
-                    value={newEndDate}
-                    onChange={(e) => setNewEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea 
-                  id="description" 
-                  placeholder="Describe your role and accomplishments..."
-                  className="h-32"
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  className="mt-2"
-                  onClick={handleEnhanceDescription}
-                  disabled={isEnhancing}
-                >
-                  {isEnhancing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enhancing...
-                    </>
-                  ) : (
-                    '✨ Enhance with AI'
-                  )}
-                </Button>
-              </div>
-            </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setEditingEntry(null);
-                  setIsAddExpModalOpen(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSaveExperience}>
-                {editingEntry ? 'Update Experience' : 'Save Experience'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
+         <Button variant="outline" size="sm" onClick={() => { setEditingEntry(null); setNewJobTitle(''); setNewCompany(''); setNewStartDate(''); setNewEndDate(''); setNewDescription(''); setIsAddExpModalOpen(true); }}>Add Experience</Button>
+        
         <hr className="my-6" />
         
         <h2 className="text-xl font-semibold mb-4">Education</h2>
-        
-        {education.length === 0 ? (
-          <p className="text-gray-500">No education added yet.</p>
-        ) : (
-          <ul className="space-y-4 mb-4">
-            {education.map((entry) => (
-              <li key={entry.id} className="flex justify-between items-center p-3 border rounded">
-                <div>
-                  <h3 className="font-medium">{entry.schoolName}</h3>
-                  <p className="text-gray-600">{entry.degree}</p>
-                  {entry.fieldOfStudy && (
-                    <p className="text-gray-600">{entry.fieldOfStudy}</p>
-                  )}
-                  <p className="text-sm text-gray-500">
-                    {entry.startDate} - {entry.endDate}
-                  </p>
-                </div>
-                <div className="space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setEditingEduEntry(entry);
-                      setNewSchoolName(entry.schoolName);
-                      setNewDegree(entry.degree);
-                      setNewFieldOfStudy(entry.fieldOfStudy || '');
-                      setNewEduStartDate(entry.startDate);
-                      setNewEduEndDate(entry.endDate);
-                      setNewEduNotes(entry.notes || '');
-                      setIsAddEduModalOpen(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                      >
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete this
-                          education entry.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDeleteEducation(entry.id)}>
-                          Continue
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <Dialog 
-          open={isAddEduModalOpen} 
-          onOpenChange={(open) => {
-            setIsAddEduModalOpen(open);
-            if (!open) {
-              setEditingEduEntry(null);
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="mt-4"
-            >
-              Add Education
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingEduEntry ? 'Edit Education' : 'Add Education'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="schoolName">School Name</Label>
-                <Input 
-                  id="schoolName" 
-                  placeholder="University of Example"
-                  value={newSchoolName}
-                  onChange={(e) => setNewSchoolName(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="degree">Degree</Label>
-                <Input 
-                  id="degree" 
-                  placeholder="Bachelor of Science"
-                  value={newDegree}
-                  onChange={(e) => setNewDegree(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="fieldOfStudy">Field of Study (Optional)</Label>
-                <Input 
-                  id="fieldOfStudy" 
-                  placeholder="Computer Science"
-                  value={newFieldOfStudy}
-                  onChange={(e) => setNewFieldOfStudy(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="eduStartDate">Start Date</Label>
-                  <Input 
-                    id="eduStartDate" 
-                    placeholder="YYYY-MM"
-                    value={newEduStartDate}
-                    onChange={(e) => setNewEduStartDate(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="eduEndDate">End Date</Label>
-                  <Input 
-                    id="eduEndDate" 
-                    placeholder="YYYY-MM or Present"
-                    value={newEduEndDate}
-                    onChange={(e) => setNewEduEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="eduNotes">Notes (Optional)</Label>
-                <Textarea 
-                  id="eduNotes" 
-                  placeholder="Additional details about your education..."
-                  className="h-32"
-                  value={newEduNotes}
-                  onChange={(e) => setNewEduNotes(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setEditingEduEntry(null);
-                  setIsAddEduModalOpen(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSaveEducationEntry}>
-                {editingEduEntry ? 'Update Education' : 'Save Education'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+         {education.length === 0 ? <p className="text-muted-foreground text-sm">No education added yet.</p> : (
+             <ul className="space-y-4 mb-4"> {education.map((entry) => ( <li key={entry.id} className="flex justify-between items-start p-3 border rounded gap-4"> <div className="flex-grow"> <h3 className="font-medium">{entry.schoolName}</h3> <p className="text-sm text-muted-foreground">{entry.degree}{entry.fieldOfStudy && ` - ${entry.fieldOfStudy}`}</p> <p className="text-xs text-muted-foreground">{entry.startDate} - {entry.endDate}</p> </div> <div className="flex gap-1 flex-shrink-0"> <Button variant="outline" size="sm" onClick={() => { setEditingEduEntry(entry); setNewSchoolName(entry.schoolName); setNewDegree(entry.degree); setNewFieldOfStudy(entry.fieldOfStudy || ''); setNewEduStartDate(entry.startDate); setNewEduEndDate(entry.endDate); setNewEduNotes(entry.notes || ''); setIsAddEduModalOpen(true); }}>Edit</Button> <AlertDialog> <AlertDialogTrigger asChild><Button variant="destructive" size="sm">Delete</Button></AlertDialogTrigger> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Are you sure?</AlertDialogTitle> <AlertDialogDescription>This will permanently delete this education entry.</AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel>Cancel</AlertDialogCancel> <AlertDialogAction onClick={() => handleDeleteEducation(entry.id)}>Delete</AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog> </div> </li> ))} </ul>
+         )}
+         <Button variant="outline" size="sm" onClick={() => { setEditingEduEntry(null); setNewSchoolName(''); setNewDegree(''); setNewFieldOfStudy(''); setNewEduStartDate(''); setNewEduEndDate(''); setNewEduNotes(''); setIsAddEduModalOpen(true); }}>Add Education</Button>
 
         <hr className="my-6" />
         
-        <h2 className="text-xl font-semibold mb-4">Skills</h2>
-        
-        {skills.length === 0 ? (
-          <p className="text-gray-500 mb-4">No skills added yet.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {skills.map((skill, index) => (
-              <div key={index} className="flex items-center bg-gray-100 rounded-full px-3 py-1 text-sm font-medium text-gray-700">
-                <span>{skill}</span>
-                <button
-                  onClick={() => handleDeleteSkill(skill)}
-                  className="ml-2 text-red-500 hover:text-red-700 font-bold text-xs"
-                  aria-label={`Remove ${skill}`}
-                >
-                  X
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+         <h2 className="text-xl font-semibold mb-4">Skills</h2>
+         {skills.length > 0 && (
+             <div className="flex flex-wrap gap-2 mb-4"> {skills.map((skill, index) => ( <div key={index} className="flex items-center bg-muted text-muted-foreground rounded-full px-3 py-1 text-sm font-medium"> <span>{skill}</span> <button onClick={() => handleDeleteSkill(skill)} className="ml-2 text-destructive hover:text-destructive/80 font-bold text-xs leading-none" aria-label={`Remove ${skill}`}>&times;</button> </div> ))} </div>
+         )}
+         <div className="flex gap-2 items-center">
+             <Input value={newSkill} onChange={(e) => setNewSkill(e.target.value)} placeholder="Add a new skill" className="flex-grow" onKeyDown={(e) => { if (e.key === 'Enter' && newSkill.trim()) handleAddSkill(); }} />
+             <Button onClick={handleAddSkill} disabled={!newSkill.trim()}>Add Skill</Button>
+             <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                 <Button variant="outline" size="icon" onClick={handleSuggestSkills} disabled={isSuggestingSkills || isLoading} aria-label="Suggest Skills"> {isSuggestingSkills ? <Loader2 className="h-4 w-4 animate-spin" /> : '✨'} </Button>
+             </TooltipTrigger> <TooltipContent><p>Suggest Skills with AI</p></TooltipContent> </Tooltip> </TooltipProvider>
+         </div>
 
-        <div className="flex gap-2 items-center">
-          <Input
-            value={newSkill}
-            onChange={(e) => setNewSkill(e.target.value)}
-            placeholder="Add a new skill"
-            className="flex-grow"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleAddSkill();
-              }
-            }}
-          />
-          <Button onClick={handleAddSkill}>Add Skill</Button>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            className="ml-2"
-            onClick={handleSuggestSkills}
-            disabled={isSuggestingSkills || isLoading}
-          >
-            {isSuggestingSkills ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Suggesting...
-              </>
-            ) : (
-              '✨ Suggest Skills'
-            )}
-          </Button>
-        </div>
+         {/* Suggestions Section */}
+         <div className="mt-4 min-h-[60px]">
+             {isSuggestingSkills && <div className="flex items-center text-muted-foreground text-sm"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...</div>}
+             {suggestSkillsError && <p className="text-red-500 text-sm">Error: {suggestSkillsError}</p>}
+             {!isSuggestingSkills && !suggestSkillsError && suggestedSkills.length > 0 && (
+                 <div className="p-3 border rounded-md bg-secondary/50">
+                     <div className="flex justify-between items-center mb-2">
+                       <h4 className="font-semibold text-sm">Suggested Skills:</h4>
+                       <Button variant="ghost" size="sm" onClick={() => setSuggestedSkills([])} className="text-xs h-auto px-2 py-1">Clear</Button>
+                     </div>
+                     <ul className="flex flex-wrap gap-2"> {suggestedSkills.map((skill) => ( <li key={skill}> <Button variant="outline" size="sm" onClick={() => handleAddSuggestedSkill(skill)} disabled={skills.includes(skill)} className={`h-auto px-2 py-1 text-xs ${skills.includes(skill) ? "opacity-50 cursor-not-allowed" : ""}`}> {skill} + </Button> </li> ))} </ul>
+                 </div>
+             )}
+         </div>
 
-        {/* Suggestions Section */}
-        {isSuggestingSkills && (
-          <p className="mt-4 text-gray-600">Loading suggestions...</p>
-        )}
+         {/* --- Modals --- */}
+          {/* Experience Dialog/Modal Component - Ensure this is defined */}
+         <Dialog open={isAddExpModalOpen} onOpenChange={(open) => { setIsAddExpModalOpen(open); if (!open) setEditingEntry(null); }}>
+             <DialogContent className="sm:max-w-[600px]">
+                 <DialogHeader><DialogTitle>{editingEntry ? 'Edit Experience' : 'Add New Experience'}</DialogTitle></DialogHeader>
+                 <div className="grid gap-4 py-4">
+                    {/* Job Title */}
+                    <div className="grid gap-2"><Label htmlFor="jobTitle">Job Title</Label><Input id="jobTitle" placeholder="Software Engineer" value={newJobTitle} onChange={(e) => setNewJobTitle(e.target.value)} /></div>
+                    {/* Company */}
+                    <div className="grid gap-2"><Label htmlFor="company">Company</Label><Input id="company" placeholder="Tech Corp" value={newCompany} onChange={(e) => setNewCompany(e.target.value)} /></div>
+                    {/* Dates */}
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="grid gap-2"><Label htmlFor="startDate">Start Date</Label><Input id="startDate" placeholder="YYYY-MM" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} /></div>
+                       <div className="grid gap-2"><Label htmlFor="endDate">End Date</Label><Input id="endDate" placeholder="YYYY-MM or Present" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} /></div>
+                    </div>
+                    {/* Description */}
+                    <div className="grid gap-2"><Label htmlFor="description">Description</Label><Textarea id="description" placeholder="Describe your role..." className="h-32" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+                      <Button variant="outline" size="sm" type="button" className="mt-2 justify-self-start" onClick={handleEnhanceDescription} disabled={isEnhancing}> {isEnhancing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enhancing...</> : '✨ Enhance with AI'} </Button>
+                    </div>
+                 </div>
+                 <DialogFooter> <Button variant="ghost" onClick={() => { setIsAddExpModalOpen(false); setEditingEntry(null); }}>Cancel</Button> <Button onClick={handleSaveExperience} disabled={isSaving}>{isSaving ? 'Saving...' : (editingEntry ? 'Update Experience' : 'Save Experience')}</Button> </DialogFooter>
+             </DialogContent>
+         </Dialog>
 
-        {suggestSkillsError && (
-          <p className="mt-4 text-red-500">Error: {suggestSkillsError}</p>
-        )}
+          {/* Education Dialog/Modal Component - Ensure this is defined */}
+         <Dialog open={isAddEduModalOpen} onOpenChange={(open) => { setIsAddEduModalOpen(open); if (!open) setEditingEduEntry(null); }}>
+             <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader><DialogTitle>{editingEduEntry ? 'Edit Education' : 'Add Education'}</DialogTitle></DialogHeader>
+                 <div className="grid gap-4 py-4">
+                     {/* School Name */}
+                    <div className="grid gap-2"><Label htmlFor="schoolName">School Name</Label><Input id="schoolName" placeholder="University of Example" value={newSchoolName} onChange={(e) => setNewSchoolName(e.target.value)}/></div>
+                     {/* Degree */}
+                    <div className="grid gap-2"><Label htmlFor="degree">Degree</Label><Input id="degree" placeholder="Bachelor of Science" value={newDegree} onChange={(e) => setNewDegree(e.target.value)} /></div>
+                     {/* Field of Study */}
+                    <div className="grid gap-2"><Label htmlFor="fieldOfStudy">Field of Study (Optional)</Label><Input id="fieldOfStudy" placeholder="Computer Science" value={newFieldOfStudy} onChange={(e) => setNewFieldOfStudy(e.target.value)} /></div>
+                     {/* Dates */}
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="grid gap-2"><Label htmlFor="eduStartDate">Start Date</Label><Input id="eduStartDate" placeholder="YYYY-MM" value={newEduStartDate} onChange={(e) => setNewEduStartDate(e.target.value)} /></div>
+                       <div className="grid gap-2"><Label htmlFor="eduEndDate">End Date</Label><Input id="eduEndDate" placeholder="YYYY-MM or Present" value={newEduEndDate} onChange={(e) => setNewEduEndDate(e.target.value)} /></div>
+                    </div>
+                     {/* Notes */}
+                    <div className="grid gap-2"><Label htmlFor="eduNotes">Notes (Optional)</Label><Textarea id="eduNotes" placeholder="Additional details..." className="h-24" value={newEduNotes} onChange={(e) => setNewEduNotes(e.target.value)} /></div>
+                 </div>
+                 <DialogFooter> <Button variant="ghost" onClick={() => { setIsAddEduModalOpen(false); setEditingEduEntry(null); }}>Cancel</Button> <Button onClick={handleSaveEducationEntry} disabled={isSaving}>{isSaving ? 'Saving...' : (editingEduEntry ? 'Update Education' : 'Save Education')}</Button> </DialogFooter>
+             </DialogContent>
+         </Dialog>
 
-        {suggestedSkills.length > 0 && (
-          <div className="mt-4">
-            <h4 className="font-semibold mb-2">Suggested Skills (Click to add):</h4>
-            <div className="flex flex-wrap gap-2">
-              {suggestedSkills.map((skill) => (
-                <Button
-                  key={skill}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleAddSuggestedSkill(skill)}
-                >
-                  {skill} +
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
-} 
+}

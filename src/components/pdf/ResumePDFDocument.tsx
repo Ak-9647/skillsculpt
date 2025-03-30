@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import type { Resume } from '@/app/dashboard/resume/[resumeId]/edit/page';
+import { Resume, ExperienceEntry, EducationEntry } from '@/types/resume';
 
 interface ResumePDFProps {
   resume: Resume | null;
@@ -73,7 +73,7 @@ const ResumePDFDocument: React.FC<ResumePDFProps> = ({ resume }) => {
         {resume.experience && resume.experience.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Experience</Text>
-            {resume.experience.map((exp, index) => (
+            {resume.experience.map((exp: ExperienceEntry, index: number) => (
               <View key={index} style={styles.listItem}>
                 <Text style={styles.subtitle}>{exp.jobTitle} at {exp.company}</Text>
                 <Text style={styles.text}>{exp.startDate} - {exp.endDate}</Text>
@@ -87,7 +87,7 @@ const ResumePDFDocument: React.FC<ResumePDFProps> = ({ resume }) => {
         {resume.education && resume.education.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Education</Text>
-            {resume.education.map((edu, index) => (
+            {resume.education.map((edu: EducationEntry, index: number) => (
               <View key={index} style={styles.listItem}>
                 <Text style={styles.subtitle}>{edu.degree}</Text>
                 <Text style={styles.text}>{edu.schoolName}</Text>
@@ -102,7 +102,9 @@ const ResumePDFDocument: React.FC<ResumePDFProps> = ({ resume }) => {
         {resume.skills && resume.skills.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Skills</Text>
-            <Text style={styles.text}>{resume.skills.join(', ')}</Text>
+            {resume.skills.map((skill: string, index: number) => (
+              <Text key={index} style={styles.text}>{skill}</Text>
+            ))}
           </View>
         )}
       </Page>
