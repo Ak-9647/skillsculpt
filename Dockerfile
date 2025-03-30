@@ -37,6 +37,7 @@
     # List the files copied in the previous step
     ls -la /secrets && \
     # Read secret content from files in /secrets
+    # Use '|| true' in case a secret file doesn't exist during local testing, prevent build fail
     API_KEY=$(cat /secrets/FIREBASE_API_KEY_FILE || true) && \
     AUTH_DOMAIN=$(cat /secrets/FIREBASE_AUTH_DOMAIN_FILE || true) && \
     PROJECT_ID=$(cat /secrets/FIREBASE_PROJECT_ID_FILE || true) && \
@@ -62,7 +63,6 @@
     fi
   
   # ---- Runner ----
-  # ... (Runner stage remains the same) ...
   FROM base AS runner
   WORKDIR /app
   ENV NODE_ENV=production

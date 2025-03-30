@@ -1,0 +1,19 @@
+{
+  "name": "suggest-resume-skills",
+  "version": "1.0.0",
+  "description": "Cloud Function to suggest skills based on resume context using Vertex AI.",
+  "main": "index.js",
+  "scripts": {
+    "start": "functions-framework --target=suggestResumeSkills --port=8081",
+    "deploy": "gcloud functions deploy suggest-resume-skills --gen2 --runtime=nodejs20 --region=us-central1 --source=. --entry-point=suggestResumeSkills --trigger-http --allow-unauthenticated"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.3.0",
+    "@google-cloud/vertexai": "^0.5.0"
+  },
+  "author": "SkillSculpt",
+  "license": "UNLICENSED"
+}

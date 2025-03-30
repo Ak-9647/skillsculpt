@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import ResumePDFDocument from '@/components/pdf/ResumePDFDocument';
 import {
   Dialog,
   DialogContent,
@@ -37,8 +39,22 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase/config';
 import { getIdToken } from 'firebase/auth';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import debounce from 'lodash/debounce';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-interface ExperienceEntry {
+export interface ExperienceEntry {
   id: string;
   jobTitle: string;
   company: string;
@@ -47,33 +63,32 @@ interface ExperienceEntry {
   description: string;
 }
 
-interface EducationEntry {
+export interface EducationEntry {
   id: string;
   schoolName: string;
   degree: string;
-  fieldOfStudy?: string; // Optional
+  fieldOfStudy?: string;
   startDate: string;
   endDate: string;
-  notes?: string;      // Optional
+  notes?: string;
 }
 
-interface Resume {
+export interface Resume {
   id: string;
-  userId: string;
   resumeName: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  experience?: ExperienceEntry[];
-  education?: EducationEntry[];
-  skills?: string[];
-  summary?: string;
-  contact?: {
+  contact: {
     email?: string;
     phone?: string;
-    linkedin?: string; // URL
-    portfolio?: string; // URL
-    location?: string; // e.g., "City, State" or "Remote"
+    location?: string;
+    linkedin?: string;
+    portfolio?: string;
   };
+  summary?: string;
+  experience: ExperienceEntry[];
+  education: EducationEntry[];
+  skills: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export default function EditResumePage() {
@@ -84,6 +99,7 @@ export default function EditResumePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [editedName, setEditedName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving' | 'Error'>('Saved');
   const [experience, setExperience] = useState<ExperienceEntry[]>([]);
   const [education, setEducation] = useState<EducationEntry[]>([]);
   const [isAddExpModalOpen, setIsAddExpModalOpen] = useState(false);
@@ -115,6 +131,41 @@ export default function EditResumePage() {
   const [contactPortfolio, setContactPortfolio] = useState('');
   const [contactLocation, setContactLocation] = useState('');
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isEnhancingSummary, setIsEnhancingSummary] = useState(false);
+  const [isSuggestingSkills, setIsSuggestingSkills] = useState(false);
+  const [suggestedSkills, setSuggestedSkills] = useState<string[]>([]);
+  const [suggestSkillsError, setSuggestSkillsError] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<'classic'>('classic');
+
+  // Create debounced update function
+  const debouncedUpdateField = useMemo(
+    () =>
+      debounce(async (fieldName: string, value: any) => {
+        if (!resumeId) return;
+
+        setAutoSaveStatus('Saving');
+        try {
+          const docRef = doc(db, 'resumes', resumeId);
+          await updateDoc(docRef, {
+            [fieldName]: value,
+            updatedAt: serverTimestamp()
+          });
+          setAutoSaveStatus('Saved');
+        } catch (error) {
+          console.error(`Error auto-saving ${fieldName}:`, error);
+          setAutoSaveStatus('Error');
+          toast.error(`Failed to auto-save ${fieldName}`);
+        }
+      }, 1500),
+    [resumeId]
+  );
+
+  // Cleanup debounced function on unmount
+  useEffect(() => {
+    return () => {
+      debouncedUpdateField.cancel();
+    };
+  }, [debouncedUpdateField]);
 
   useEffect(() => {
     if (!resumeId) {
@@ -398,12 +449,9 @@ export default function EditResumePage() {
     }
     const updatedSkills = [...skills, trimmedSkill];
     try {
-      await updateDoc(doc(db, 'resumes', resumeId), {
-        skills: updatedSkills,
-        updatedAt: serverTimestamp()
-      });
-      setSkills(updatedSkills);
+      setSkills(updatedSkills); // Update local state immediately
       setNewSkill(''); // Clear input field
+      debouncedUpdateField('skills', updatedSkills); // Use debounced update
       toast.success('Skill added.');
     } catch (error) {
       console.error("Failed to add skill:", error);
@@ -414,15 +462,105 @@ export default function EditResumePage() {
   const handleDeleteSkill = async (skillToDelete: string) => {
     const updatedSkills = skills.filter(skill => skill !== skillToDelete);
     try {
-      await updateDoc(doc(db, 'resumes', resumeId), {
-        skills: updatedSkills,
-        updatedAt: serverTimestamp()
-      });
-      setSkills(updatedSkills);
+      setSkills(updatedSkills); // Update local state immediately
+      debouncedUpdateField('skills', updatedSkills); // Use debounced update
       toast.success('Skill removed.');
     } catch (error) {
       console.error("Failed to delete skill:", error);
       toast.error('Failed to delete skill.');
+    }
+  };
+
+  const handleSuggestSkills = async () => {
+    console.log('Suggest Skills button clicked');
+    // Prevent running if suggestions are already being fetched
+    if (isSuggestingSkills) return;
+
+    // Reset states
+    setIsSuggestingSkills(true);
+    setSuggestSkillsError(null);
+    setSuggestedSkills([]);
+    toast.info('Gathering context for skill suggestions...');
+
+    // Get the function URL from environment variable
+    const functionUrl = process.env.NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL;
+    
+    // Validate URL
+    if (!functionUrl) {
+      console.error('Suggest skills function URL not configured');
+      setSuggestSkillsError('Suggest skills function URL not configured');
+      setIsSuggestingSkills(false);
+      return;
+    }
+
+    // 1. Get context from existing state
+    const currentSkills = skills;
+    const currentSummary = summary;
+    const jobTitles = experience.map(exp => exp.jobTitle).filter(title => !!title);
+    const jobDescriptions = experience.map(exp => exp.description).filter(desc => !!desc);
+
+    // Prepare context object
+    const context = {
+      summary: currentSummary,
+      jobTitles,
+      jobDescriptions,
+      existingSkills: currentSkills
+    };
+
+    console.log('Context for suggestions:', context);
+    console.log('Using function URL:', functionUrl);
+
+    try {
+      // Get auth token
+      if (!auth.currentUser) {
+        throw new Error('Authentication error. Please log in.');
+      }
+      const token = await getIdToken(auth.currentUser);
+
+      // Make API call
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(context),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Function returned error:', errorText);
+        throw new Error(`Request failed: ${response.statusText} (${response.status})`);
+      }
+
+      const data = await response.json();
+      console.log('Received suggestions:', data.suggestedSkills);
+      
+      if (data.suggestedSkills) {
+        setSuggestedSkills(data.suggestedSkills);
+        toast.success('Skill suggestions received!');
+      } else {
+        throw new Error('Invalid response structure from AI function.');
+      }
+
+    } catch (error: any) {
+      console.error('Error suggesting skills:', error);
+      setSuggestSkillsError(error.message || 'An unknown error occurred');
+      toast.error(`Failed to get suggestions: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsSuggestingSkills(false);
+    }
+  };
+
+  const handleAddSuggestedSkill = (skill: string) => {
+    if (!skills.includes(skill)) {
+      const updatedSkills = [...skills, skill];
+      setSkills(updatedSkills); // Update local state immediately
+      setSuggestedSkills(prev => prev.filter(s => s !== skill));
+      debouncedUpdateField('skills', updatedSkills); // Use debounced update
+      toast.success(`Added skill: ${skill}`);
+    } else {
+      toast.info('Skill already exists');
     }
   };
 
@@ -490,6 +628,92 @@ export default function EditResumePage() {
     }
   };
 
+  const handleEnhanceSummary = async () => {
+    const currentSummary = summary?.trim();
+    if (!currentSummary) {
+      toast.error('Please enter a summary to enhance');
+      return;
+    }
+
+    if (!auth.currentUser) {
+      toast.error('Please sign in to use AI enhancement');
+      return;
+    }
+
+    setIsEnhancingSummary(true);
+    try {
+      const token = await getIdToken(auth.currentUser);
+      const functionUrl = 'https://enhance-resume-text-central1-test-sirxstvtva-uc.a.run.app';
+
+      console.log('Calling enhance function at:', functionUrl);
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          promptText: currentSummary
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.enhancedText) {
+        setSummary(data.enhancedText);
+        toast.success('Summary enhanced successfully!');
+      } else {
+        console.error('Invalid response structure:', data);
+        throw new Error('Invalid response structure from AI function.');
+      }
+
+    } catch (error: Error | unknown) {
+      console.error('Error calling enhance function:', error);
+      toast.error(`Failed to enhance summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsEnhancingSummary(false);
+    }
+  };
+
+  // Update the summary onChange handler
+  const handleSummaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setSummary(newValue);
+    debouncedUpdateField('summary', newValue);
+  };
+
+  // Update contact field handlers
+  const handleContactEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setContactEmail(newValue);
+    debouncedUpdateField('contact.email', newValue);
+  };
+
+  const handleContactPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setContactPhone(newValue);
+    debouncedUpdateField('contact.phone', newValue);
+  };
+
+  const handleContactLinkedinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setContactLinkedin(newValue);
+    debouncedUpdateField('contact.linkedin', newValue);
+  };
+
+  const handleContactPortfolioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setContactPortfolio(newValue);
+    debouncedUpdateField('contact.portfolio', newValue);
+  };
+
+  const handleContactLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setContactLocation(newValue);
+    debouncedUpdateField('contact.location', newValue);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-theme(spacing.16))]">
@@ -534,23 +758,98 @@ export default function EditResumePage() {
             placeholder="Enter resume name"
             className="my-4"
           />
-          <Button
-            onClick={handleSaveChanges}
-            disabled={isSaving || !editedName.trim()}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
+          <div className="flex gap-2 items-center">
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {autoSaveStatus}
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="template-select" className="text-sm">Template:</Label>
+                <Select
+                  value={selectedTemplate}
+                  onValueChange={(value: 'classic') => {
+                    console.log('Template selection changed:', {
+                      previous: selectedTemplate,
+                      new: value,
+                      timestamp: new Date().toISOString()
+                    });
+                    setSelectedTemplate(value);
+                  }}
+                >
+                  <SelectTrigger id="template-select" className="w-[180px]">
+                    <SelectValue placeholder="Select template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="classic">Classic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {resumeData && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PDFDownloadLink
+                        document={<ResumePDFDocument resume={resumeData} templateName={selectedTemplate} />}
+                        fileName={`${resumeData.resumeName || 'resume'}.pdf`}
+                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                      >
+                        {({ loading }) => loading ? 'Loading document...' : 'Download PDF'}
+                      </PDFDownloadLink>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Download your resume as PDF</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
         </div>
 
         <hr className="my-6" />
         
         <h2 className="text-xl font-semibold mb-4">Summary</h2>
-        <Textarea
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-          placeholder="Write a brief professional summary or objective..."
-          className="h-32 mb-6"
-        />
+        <div className="space-y-2">
+          <Label>Summary</Label>
+          <Textarea
+            value={summary || ''}
+            onChange={handleSummaryChange}
+            placeholder="Enter a brief summary of your professional background"
+            className="h-32"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="mt-2"
+            onClick={handleEnhanceSummary}
+            disabled={isEnhancingSummary}
+          >
+            {isEnhancingSummary ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enhancing...
+              </>
+            ) : (
+              '✨ Enhance Summary with AI'
+            )}
+          </Button>
+        </div>
 
         <hr className="my-6" />
         
@@ -563,7 +862,7 @@ export default function EditResumePage() {
               type="email" 
               placeholder="your.email@example.com" 
               value={contactEmail} 
-              onChange={(e) => setContactEmail(e.target.value)} 
+              onChange={handleContactEmailChange}
             />
           </div>
           <div className="space-y-1">
@@ -572,7 +871,7 @@ export default function EditResumePage() {
               id="contactPhone" 
               placeholder="(123) 456-7890" 
               value={contactPhone} 
-              onChange={(e) => setContactPhone(e.target.value)} 
+              onChange={handleContactPhoneChange}
             />
           </div>
           <div className="space-y-1">
@@ -581,7 +880,7 @@ export default function EditResumePage() {
               id="contactLinkedin" 
               placeholder="linkedin.com/in/yourprofile" 
               value={contactLinkedin} 
-              onChange={(e) => setContactLinkedin(e.target.value)} 
+              onChange={handleContactLinkedinChange}
             />
           </div>
           <div className="space-y-1">
@@ -590,7 +889,7 @@ export default function EditResumePage() {
               id="contactPortfolio" 
               placeholder="yourportfolio.com" 
               value={contactPortfolio} 
-              onChange={(e) => setContactPortfolio(e.target.value)} 
+              onChange={handleContactPortfolioChange}
             />
           </div>
           <div className="space-y-1">
@@ -599,7 +898,7 @@ export default function EditResumePage() {
               id="contactLocation" 
               placeholder="City, State or Remote" 
               value={contactLocation} 
-              onChange={(e) => setContactLocation(e.target.value)} 
+              onChange={handleContactLocationChange}
             />
           </div>
         </div>
@@ -1005,7 +1304,50 @@ export default function EditResumePage() {
             }}
           />
           <Button onClick={handleAddSkill}>Add Skill</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="ml-2"
+            onClick={handleSuggestSkills}
+            disabled={isSuggestingSkills || isLoading}
+          >
+            {isSuggestingSkills ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Suggesting...
+              </>
+            ) : (
+              '✨ Suggest Skills'
+            )}
+          </Button>
         </div>
+
+        {/* Suggestions Section */}
+        {isSuggestingSkills && (
+          <p className="mt-4 text-gray-600">Loading suggestions...</p>
+        )}
+
+        {suggestSkillsError && (
+          <p className="mt-4 text-red-500">Error: {suggestSkillsError}</p>
+        )}
+
+        {suggestedSkills.length > 0 && (
+          <div className="mt-4">
+            <h4 className="font-semibold mb-2">Suggested Skills (Click to add):</h4>
+            <div className="flex flex-wrap gap-2">
+              {suggestedSkills.map((skill) => (
+                <Button
+                  key={skill}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAddSuggestedSkill(skill)}
+                >
+                  {skill} +
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
