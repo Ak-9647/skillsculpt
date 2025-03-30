@@ -1,0 +1,13 @@
+{
+    "name": "enhance-resume-text",
+    "version": "0.0.1",
+    "main": "index.js",
+    "dependencies": {
+      "@google-cloud/functions-framework": "^3.4.0",
+      "@google-cloud/vertexai": "^1.1.0",
+      "firebase-admin": "^12.1.1"
+    },
+    "engines": {
+      "node": ">=20"
+    }
+  }

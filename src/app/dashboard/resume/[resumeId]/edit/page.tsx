@@ -450,7 +450,7 @@ export default function EditResumePage() {
     setIsEnhancing(true);
     try {
       const token = await getIdToken(auth.currentUser);
-      const functionUrl = 'https://enhance-resume-text-62486276154.us-west2.run.app';
+      const functionUrl = 'https://enhance-resume-text-central1-test-sirxstvtva-uc.a.run.app';
 
       console.log('Calling enhance function at:', functionUrl);
       console.log('Sending description:', currentDescription);

@@ -1,22 +1,19 @@
 steps:
-  # Step 0: Create secret files in /workspace using bash on ubuntu image
-  - name: 'ubuntu' # *** CHANGED from gcr.io/cloud-builders/bash ***
+  # Step 0: Create secret files for Firebase config (No change needed)
+  - name: 'ubuntu'
     id: 'Create Secret Files'
-    entrypoint: 'bash' # *** ADDED entrypoint ***
+    entrypoint: 'bash'
     args:
       - '-c'
       - |
         echo "Creating secret files in /workspace..."
-        # Use $$VAR notation to access secrets defined in secretEnv for this step
         echo "$$FIREBASE_API_KEY" > /workspace/FIREBASE_API_KEY_FILE
         echo "$$FIREBASE_AUTH_DOMAIN" > /workspace/FIREBASE_AUTH_DOMAIN_FILE
         echo "$$FIREBASE_PROJECT_ID" > /workspace/FIREBASE_PROJECT_ID_FILE
         echo "$$FIREBASE_STORAGE_BUCKET" > /workspace/FIREBASE_STORAGE_BUCKET_FILE
         echo "$$FIREBASE_MESSAGING_SENDER_ID" > /workspace/FIREBASE_MESSAGING_SENDER_ID_FILE
         echo "$$FIREBASE_APP_ID" > /workspace/FIREBASE_APP_ID_FILE
-        echo "Done creating secret files. Listing /workspace:"
-        ls -la /workspace
-    # This step needs access to the secrets via secretEnv
+        echo "Done creating secret files."
     secretEnv:
       - 'FIREBASE_API_KEY'
       - 'FIREBASE_AUTH_DOMAIN'
@@ -25,54 +22,78 @@ steps:
       - 'FIREBASE_MESSAGING_SENDER_ID'
       - 'FIREBASE_APP_ID'
 
-  # Step 1 (Original Step 0): Build the Docker image
+  # Step 1: Build the Frontend Docker image (No change needed)
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build'
-    waitFor: ['Create Secret Files'] # Ensure Step 0 finishes first
+    id: 'Build Frontend Image'
+    waitFor: ['Create Secret Files']
     args:
       - 'build'
-      # - '--no-cache'
       - '--tag'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--tag'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
       - '--platform'
       - 'linux/amd64'
-      - '.'
-    # NO secretEnv needed here anymore
+      - '.' # Assumes Dockerfile is in the root
 
-  # Step 2 (Original Step 1): Push the Docker image
+  # Step 2: Push the Frontend Docker image (No change needed)
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push'
-    waitFor: ['Build'] # Wait for the build step to succeed
+    id: 'Push Frontend Image'
+    waitFor: ['Build Frontend Image']
     args:
       - 'push'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app'
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}' # Pushes both tags (latest and SHA)
 
-  # Step 3 (Original Step 2): Deploy the image to Cloud Run
+  # *** NEW Step 3: Deploy the Cloud Function to us-central1 ***
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'Deploy'
-    waitFor: ['Push'] # Wait for the push step to succeed
+    id: 'Deploy AI Function'
+    args:
+      - 'functions'
+      - 'deploy'
+      - 'enhance-resume-text' # Deploying with the final name
+      - '--gen2'
+      - '--runtime=nodejs22'
+      - '--region=us-central1' # <<< Deploying to us-central1
+      - '--source=./enhance-resume-text' # <<< Specify source sub-directory
+      - '--entry-point=enhanceResumeText'
+      - '--trigger-http'
+      - '--allow-unauthenticated'
+      - '--service-account=62486276154-compute@developer.gserviceaccount.com' # <<< Use correct SA email
+      - '--project=$PROJECT_ID'
+
+  # Step 4 (Original Step 3): Deploy the Frontend image to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy Frontend Service'
+    waitFor: ['Push Frontend Image', 'Deploy AI Function'] # Wait for push and function deploy
     args:
       - 'run'
       - 'deploy'
-      - 'skillsculpt-app' # Service name
+      - '${_SERVICE_NAME}' # Uses substitution 'skillsculpt-app'
       - '--image'
-      - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+      # Use specific SHA tag for deployment image, latest is ambiguous
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--region'
-      - 'us-west2' # Service region
+      - '${_CLOUD_RUN_REGION}' # Uses substitution 'us-west2'
       - '--platform'
       - 'managed'
-      - '--project'
-      - 'car-magic-454906'
-      # - '--allow-unauthenticated'
+      - '--project=$PROJECT_ID'
+      # '--allow-unauthenticated' # Keep this commented if you want default auth
+      # *** ADDED: Pass Function URL to Frontend Service ***
+      - '--set-env-vars'
+      # Note: Construct the known URL for the function deployed in Step 3
+      # URL format: https://<function-name>-<project-hash>-<region-code>.a.run.app
+      # Replace <project-hash> with the unique hash for your project/region (find from deployed URL)
+      # OR ideally, find a way to dynamically get the URL from Step 3 output if needed.
+      # For now, hardcoding the known *working* URL is simplest:
+      - '^#^NEXT_PUBLIC_ENHANCE_FUNCTION_URL=https://enhance-resume-text-sirxstvtva-uc.a.run.app' # <<< Use the final function name and region
+      # The ^#^ is used to allow commas in env var values if needed
 
-# images section
+# images section (No change needed)
 images:
-  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:$COMMIT_SHA'
-  - 'us-west2-docker.pkg.dev/car-magic-454906/skillsculpt-repo/skillsculpt-app:latest'
+  - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
 
-# availableSecrets section (needed for Step 0)
+# availableSecrets section (No change needed)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
@@ -88,16 +109,16 @@ availableSecrets:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: 'FIREBASE_APP_ID'
 
-# substitutions section
+# substitutions section (No change needed)
 substitutions:
   _SERVICE_NAME: skillsculpt-app
   _CLOUD_RUN_REGION: us-west2
   _ARTIFACT_REGISTRY_REGION: us-west2
   _ARTIFACT_REPO_NAME: skillsculpt-repo
 
-# timeout section
+# timeout section (No change needed)
 timeout: '1200s' # 20 minutes
 
-# options section (Ensure this is still present!)
+# options section (No change needed)
 options:
   logging: CLOUD_LOGGING_ONLY
