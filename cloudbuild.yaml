@@ -1,5 +1,5 @@
 steps:
-  # Step 0: Create secret files for Firebase config
+  # Step 0: Create secret files for Firebase config (No change)
   - name: 'ubuntu'
     id: 'Create Secret Files'
     entrypoint: 'bash'
@@ -22,7 +22,7 @@ steps:
       - 'FIREBASE_MESSAGING_SENDER_ID'
       - 'FIREBASE_APP_ID'
 
-  # Step 1: Build the Frontend Docker image (using Dockerfile in .)
+  # Step 1: Build the Frontend Docker image (No change)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build Frontend Image'
     waitFor: ['Create Secret Files']
@@ -36,7 +36,7 @@ steps:
       - 'linux/amd64'
       - '.' # Assumes Dockerfile is in the current directory (skillsculpt-app)
 
-  # Step 2: Push the Frontend Docker image
+  # Step 2: Push the Frontend Docker image (No change)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push Frontend Image'
     waitFor: ['Build Frontend Image']
@@ -44,67 +44,69 @@ steps:
       - 'push'
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}'
 
-  # Step 3: Deploy the enhance-resume-text Cloud Function to us-central1
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'Deploy Enhance Function'
-    args:
-      - 'functions'
-      - 'deploy'
-      - 'enhance-resume-text'
-      - '--gen2'
-      - '--runtime=nodejs20' # <<< CORRECTED RUNTIME
-      - '--region=us-central1'
-      - '--source=./enhance-resume-text'
-      - '--entry-point=enhanceResumeText'
-      - '--trigger-http'
-      - '--allow-unauthenticated'
-      - '--service-account=62486276154-compute@developer.gserviceaccount.com'
-      - '--project=$PROJECT_ID'
+# --- FUNCTION DEPLOYMENT STEPS COMMENTED OUT FOR DIAGNOSTICS ---
+#
+#  # Step 3: Deploy the enhance-resume-text Cloud Function (COMMENTED OUT)
+#  - name: 'gcr.io/cloud-builders/gcloud'
+#    id: 'Deploy Enhance Function'
+#    args:
+#      - 'functions'
+#      - 'deploy'
+#      - 'enhance-resume-text'
+#      - '--gen2'
+#      - '--runtime=nodejs20' 
+#      - '--region=us-central1'
+#      - '--source=./enhance-resume-text' 
+#      - '--entry-point=enhanceResumeText'
+#      - '--trigger-http'
+#      - '--allow-unauthenticated'
+#      - '--service-account=62486276154-compute@developer.gserviceaccount.com'
+#      - '--project=$PROJECT_ID'
+#
+#  # Step 4: Deploy the suggest-resume-skills Cloud Function (COMMENTED OUT)
+#  - name: 'gcr.io/cloud-builders/gcloud'
+#    id: 'Deploy Suggest Function'
+#    args:
+#      - 'functions'
+#      - 'deploy'
+#      - 'suggest-resume-skills'
+#      - '--gen2'
+#      - '--runtime=nodejs20' 
+#      - '--region=us-central1'
+#      - '--source=./suggest-resume-skills' 
+#      - '--entry-point=suggestResumeSkills'
+#      - '--trigger-http'
+#      - '--allow-unauthenticated'
+#      - '--service-account=62486276154-compute@developer.gserviceaccount.com'
+#      - '--project=$PROJECT_ID'
+#
+# --- END OF COMMENTED OUT FUNCTION STEPS ---
 
-  # Step 4: Deploy the suggest-resume-skills Cloud Function to us-central1
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'Deploy Suggest Function' # <<< NEW STEP
-    args:
-      - 'functions'
-      - 'deploy'
-      - 'suggest-resume-skills'
-      - '--gen2'
-      - '--runtime=nodejs20' # <<< CORRECTED RUNTIME
-      - '--region=us-central1'
-      - '--source=./suggest-resume-skills'
-      - '--entry-point=suggestResumeSkills'
-      - '--trigger-http'
-      - '--allow-unauthenticated'
-      - '--service-account=62486276154-compute@developer.gserviceaccount.com'
-      - '--project=$PROJECT_ID'
-
-  # Step 5: Deploy the Frontend image to Cloud Run
+  # Step 3 (Original Step 5): Deploy the Frontend image to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Deploy Frontend Service'
-    # *** UPDATED waitFor ***
-    waitFor: ['Push Frontend Image', 'Deploy Enhance Function', 'Deploy Suggest Function']
+    # *** UPDATED waitFor: Only wait for push now ***
+    waitFor: ['Push Frontend Image']
     args:
       - 'run'
       - 'deploy'
-      - '${_SERVICE_NAME}'
+      - '${_SERVICE_NAME}' # Uses substitution 'skillsculpt-app'
       - '--image'
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--region'
-      - '${_CLOUD_RUN_REGION}'
+      - '${_CLOUD_RUN_REGION}' # Uses substitution 'us-west2'
       - '--platform'
       - 'managed'
       - '--project=$PROJECT_ID'
-      # '--allow-unauthenticated'
-      # *** UPDATED set-env-vars ***
-      - '--set-env-vars'
-      - '^#^NEXT_PUBLIC_ENHANCE_FUNCTION_URL=https://enhance-resume-text-sirxstvtva-uc.a.run.app#NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=https://suggest-resume-skills-sirxstvtva-uc.a.run.app'
+      # '--allow-unauthenticated' # Keep commented if default auth is desired
+      # *** REMOVED --set-env-vars for this test ***
 
-# images section
+# images section (No change needed)
 images:
   - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
   - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
 
-# availableSecrets section
+# availableSecrets section (No change needed)
 availableSecrets:
   secretManager:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
@@ -120,16 +122,16 @@ availableSecrets:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: 'FIREBASE_APP_ID'
 
-# substitutions section
+# substitutions section (No change needed)
 substitutions:
   _SERVICE_NAME: skillsculpt-app
   _CLOUD_RUN_REGION: us-west2
   _ARTIFACT_REGISTRY_REGION: us-west2
   _ARTIFACT_REPO_NAME: skillsculpt-repo
 
-# timeout section
+# timeout section (No change needed)
 timeout: '1200s' # 20 minutes
 
-# options section
+# options section (No change needed)
 options:
   logging: CLOUD_LOGGING_ONLY
