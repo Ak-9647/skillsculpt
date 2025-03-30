@@ -3,12 +3,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
-// TypeScript interface for environment variables
-interface LinkedInConfig {
-  NEXT_PUBLIC_LINKEDIN_CLIENT_ID: string;
-  NEXT_PUBLIC_LINKEDIN_REDIRECT_URI: string;
-}
-
 export default function LinkedInOptimizerPage() {
 
   const handleConnectLinkedIn = () => {

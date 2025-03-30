@@ -482,9 +482,9 @@ export default function EditResumePage() {
         throw new Error('Invalid response structure from AI function.');
       }
 
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error('Error calling enhance function:', error);
-      toast.error(`Failed to enhance description: ${error.message || 'Unknown error'}`);
+      toast.error(`Failed to enhance description: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsEnhancing(false);
     }
@@ -637,7 +637,7 @@ export default function EditResumePage() {
           <p className="text-gray-500">No experience added yet.</p>
         ) : (
           <div className="space-y-4 mb-4">
-            {experience.map((entry, index) => (
+            {experience.map((entry) => (
               <div 
                 key={entry.id}
                 className="p-4 border rounded-lg flex items-center justify-between"
