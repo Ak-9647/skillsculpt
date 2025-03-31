@@ -1,3 +1,5 @@
+# cloudbuild.yaml (Original Full Version for Trigger)
+
 steps:
   # Step 0: Create secret files for Firebase config
   - name: 'ubuntu'
@@ -29,7 +31,7 @@ steps:
     args:
       - 'build'
       - '--tag'
-      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA' # Use COMMIT_SHA for triggers
       - '--tag'
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
       - '--platform'
@@ -42,6 +44,7 @@ steps:
     waitFor: ['Build Frontend Image']
     args:
       - 'push'
+      # Pushing the base name pushes all tags (COMMIT_SHA and latest)
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}'
 
   # Step 3: Deploy the enhance-resume-text Cloud Function to us-central1
@@ -52,7 +55,7 @@ steps:
       - 'deploy'
       - 'enhance-resume-text'
       - '--gen2'
-      - '--runtime=nodejs20' # Runtime nodejs20
+      - '--runtime=nodejs20'
       - '--region=us-central1'
       - '--source=./enhance-resume-text' # Assumes this dir is inside skillsculpt-app
       - '--entry-point=enhanceResumeText'
@@ -63,13 +66,13 @@ steps:
 
   # Step 4: Deploy the suggest-resume-skills Cloud Function to us-central1
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'Deploy Suggest Function' # New Step ID
+    id: 'Deploy Suggest Function'
     args:
       - 'functions'
       - 'deploy'
-      - 'suggest-resume-skills' # Correct function name
+      - 'suggest-resume-skills'
       - '--gen2'
-      - '--runtime=nodejs20' # Runtime nodejs20
+      - '--runtime=nodejs20'
       - '--region=us-central1'
       - '--source=./suggest-resume-skills' # Assumes this dir is inside skillsculpt-app
       - '--entry-point=suggestResumeSkills'
@@ -88,23 +91,20 @@ steps:
       - 'deploy'
       - '${_SERVICE_NAME}' # Uses substitution 'skillsculpt-app'
       - '--image'
-      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA' # Use COMMIT_SHA for triggers
       - '--region'
       - '${_CLOUD_RUN_REGION}' # Uses substitution 'us-west2'
       - '--platform'
       - 'managed'
       - '--project=$PROJECT_ID'
-      # '--allow-unauthenticated' # Keep commented if default auth is desired
       # Set BOTH function URLs as environment variables
       - '--set-env-vars'
       # Use ^#^ delimiter for multiple vars. Use the known .a.run.app URLs
       - '^#^NEXT_PUBLIC_ENHANCE_FUNCTION_URL=https://enhance-resume-text-sirxstvtva-uc.a.run.app#NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=https://suggest-resume-skills-sirxstvtva-uc.a.run.app'
 
-# --- Remaining sections are unchanged ---
-
 # images section
 images:
-  - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA' # Use COMMIT_SHA for triggers
   - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:latest'
 
 # availableSecrets section
@@ -123,7 +123,7 @@ availableSecrets:
     - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: 'FIREBASE_APP_ID'
 
-# substitutions section
+# substitutions section (Include _CLOUD_RUN_REGION again)
 substitutions:
   _SERVICE_NAME: skillsculpt-app
   _CLOUD_RUN_REGION: us-west2
