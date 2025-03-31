@@ -1,4 +1,4 @@
-# cloudbuild.yaml (Original Full Version for Trigger)
+# cloudbuild.yaml (Full Version + Explicit SHA Push Step)
 
 steps:
   # Step 0: Create secret files for Firebase config
@@ -38,18 +38,27 @@ steps:
       - 'linux/amd64'
       - '.' # Assumes Dockerfile is in the current directory (skillsculpt-app)
 
-  # Step 2: Push the Frontend Docker image
+  # Step 2: Push the Frontend Docker image (Attempts both tags)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push Frontend Image'
     waitFor: ['Build Frontend Image']
     args:
       - 'push'
-      # Pushing the base name pushes all tags (COMMIT_SHA and latest)
+      # Pushing the base name *should* push all tags (COMMIT_SHA and latest)
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}'
+
+  # Step 2b: Explicitly Push Commit SHA Tag (Diagnostic Step)
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Explicit Push SHA Tag'
+    waitFor: ['Push Frontend Image'] # Wait for the previous push attempt
+    args:
+      - 'push'
+      - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
 
   # Step 3: Deploy the enhance-resume-text Cloud Function to us-central1
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Deploy Enhance Function'
+    # This step implicitly waits for Step 1 (Build) as it doesn't depend on Push
     args:
       - 'functions'
       - 'deploy'
@@ -57,7 +66,7 @@ steps:
       - '--gen2'
       - '--runtime=nodejs20'
       - '--region=us-central1'
-      - '--source=./enhance-resume-text' # Assumes this dir is inside skillsculpt-app
+      - '--source=./enhance-resume-text'
       - '--entry-point=enhanceResumeText'
       - '--trigger-http'
       - '--allow-unauthenticated'
@@ -67,6 +76,7 @@ steps:
   # Step 4: Deploy the suggest-resume-skills Cloud Function to us-central1
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Deploy Suggest Function'
+    # This step implicitly waits for Step 1 (Build) as it doesn't depend on Push
     args:
       - 'functions'
       - 'deploy'
@@ -74,7 +84,7 @@ steps:
       - '--gen2'
       - '--runtime=nodejs20'
       - '--region=us-central1'
-      - '--source=./suggest-resume-skills' # Assumes this dir is inside skillsculpt-app
+      - '--source=./suggest-resume-skills'
       - '--entry-point=suggestResumeSkills'
       - '--trigger-http'
       - '--allow-unauthenticated'
@@ -84,22 +94,20 @@ steps:
   # Step 5: Deploy the Frontend image to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Deploy Frontend Service'
-    # Wait for push and BOTH function deploys
-    waitFor: ['Push Frontend Image', 'Deploy Enhance Function', 'Deploy Suggest Function']
+    # *** UPDATED waitFor: Wait for EXPLICIT push and BOTH function deploys ***
+    waitFor: ['Explicit Push SHA Tag', 'Deploy Enhance Function', 'Deploy Suggest Function']
     args:
       - 'run'
       - 'deploy'
-      - '${_SERVICE_NAME}' # Uses substitution 'skillsculpt-app'
+      - '${_SERVICE_NAME}'
       - '--image'
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA' # Use COMMIT_SHA for triggers
       - '--region'
-      - '${_CLOUD_RUN_REGION}' # Uses substitution 'us-west2'
+      - '${_CLOUD_RUN_REGION}'
       - '--platform'
       - 'managed'
       - '--project=$PROJECT_ID'
-      # Set BOTH function URLs as environment variables
       - '--set-env-vars'
-      # Use ^#^ delimiter for multiple vars. Use the known .a.run.app URLs
       - '^#^NEXT_PUBLIC_ENHANCE_FUNCTION_URL=https://enhance-resume-text-sirxstvtva-uc.a.run.app#NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=https://suggest-resume-skills-sirxstvtva-uc.a.run.app'
 
 # images section
@@ -133,6 +141,6 @@ substitutions:
 # timeout section
 timeout: '1200s' # 20 minutes
 
-# options section
+# options sections
 options:
   logging: CLOUD_LOGGING_ONLY
