@@ -8,8 +8,6 @@ import { Loader2, Copy, Check } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import Image from 'next/image';
 
 interface LinkedInProfileData {
