@@ -35,6 +35,8 @@
   COPY FIREBASE_STORAGE_BUCKET_FILE /secrets/
   COPY FIREBASE_MESSAGING_SENDER_ID_FILE /secrets/
   COPY FIREBASE_APP_ID_FILE /secrets/
+  COPY FIREBASE_CLIENT_EMAIL_FILE /secrets/
+  COPY FIREBASE_PRIVATE_KEY_FILE /secrets/
   
   # Modified RUN step: Create .env.production from secrets AND build args
   RUN \
@@ -46,6 +48,8 @@
     STORAGE_BUCKET=$(cat /secrets/FIREBASE_STORAGE_BUCKET_FILE || true) && \
     MESSAGING_SENDER_ID=$(cat /secrets/FIREBASE_MESSAGING_SENDER_ID_FILE || true) && \
     APP_ID=$(cat /secrets/FIREBASE_APP_ID_FILE || true) && \
+    CLIENT_EMAIL=$(cat /secrets/FIREBASE_CLIENT_EMAIL_FILE || true) && \
+    PRIVATE_KEY=$(cat /secrets/FIREBASE_PRIVATE_KEY_FILE || true) && \
     \
     echo "NEXT_PUBLIC_FIREBASE_API_KEY=${API_KEY}" > .env.production && \
     echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${AUTH_DOMAIN}" >> .env.production && \
@@ -53,11 +57,12 @@
     echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${STORAGE_BUCKET}" >> .env.production && \
     echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${MESSAGING_SENDER_ID}" >> .env.production && \
     echo "NEXT_PUBLIC_FIREBASE_APP_ID=${APP_ID}" >> .env.production && \
-    # --- Append Build Args to .env.production ---
     echo "NEXT_PUBLIC_ENHANCE_FUNCTION_URL=${NEXT_PUBLIC_ENHANCE_FUNCTION_URL}" >> .env.production && \
     echo "NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=${NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL}" >> .env.production && \
     echo "GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}" >> .env.production && \
-    # --- End Appended Lines ---
+    echo "FIREBASE_PROJECT_ID=${PROJECT_ID}" >> .env.production && \
+    echo "FIREBASE_CLIENT_EMAIL=${CLIENT_EMAIL}" >> .env.production && \
+    echo "FIREBASE_PRIVATE_KEY=${PRIVATE_KEY}" >> .env.production && \
     \
     echo "--- Created .env.production ---" && \
     cat .env.production && \
