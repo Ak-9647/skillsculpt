@@ -204,8 +204,8 @@ export default function LinkedInDashboard() {
 
       const enhanceData = await enhanceResponse.json();
       setSuggestedHeadline(enhanceData.suggestion);
-    } catch (err) {
-      setHeadlineError(err instanceof Error ? err.message : 'Failed to process headline');
+    } catch (_err) {
+      setHeadlineError(_err instanceof Error ? _err.message : 'Failed to process headline');
     } finally {
       setHeadlineLoading(false);
     }
