@@ -101,9 +101,9 @@ export default function LinkedInDashboard() {
         url.searchParams.delete('linkedin_callback_state');
         window.history.replaceState({}, '', url.toString());
 
-      } catch (_err) {
-        console.error('DEBUG: Error during LinkedIn association:', _err);
-        setError(_err instanceof Error ? _err.message : 'Failed to connect LinkedIn account');
+      } catch (err) {
+        console.error('DEBUG: Error during LinkedIn association:', err);
+        setError(err instanceof Error ? err.message : 'Failed to connect LinkedIn account');
         toast.error('Failed to connect LinkedIn account');
       } finally {
         setIsLoading(false);
@@ -204,8 +204,8 @@ export default function LinkedInDashboard() {
 
       const enhanceData = await enhanceResponse.json();
       setSuggestedHeadline(enhanceData.suggestion);
-    } catch (_err) {
-      setHeadlineError(_err instanceof Error ? _err.message : 'Failed to process headline');
+    } catch (err) {
+      setHeadlineError(err instanceof Error ? err.message : 'Failed to process headline');
     } finally {
       setHeadlineLoading(false);
     }
@@ -221,7 +221,7 @@ export default function LinkedInDashboard() {
       
       // Reset copied state after 2 seconds
       setTimeout(() => setIsCopied(false), 2000);
-    } catch (_err) {
+    } catch (err) {
       toast.error('Failed to copy suggestion');
     }
   };
