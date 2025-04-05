@@ -221,7 +221,7 @@ export default function LinkedInDashboard() {
       
       // Reset copied state after 2 seconds
       setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
+    } catch {
       toast.error('Failed to copy suggestion');
     }
   };
