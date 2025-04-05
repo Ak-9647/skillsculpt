@@ -1,9 +1,10 @@
 declare module 'react-markdown' {
-  import { ComponentType, ReactNode } from 'react';
+  import { ComponentType } from 'react';
+  import { Components } from 'react-markdown/lib/ast-to-react';
 
   interface ReactMarkdownProps {
     children: string;
-    components?: Record<string, ComponentType<any>>;
+    components?: Partial<Components>;
     className?: string;
   }
 

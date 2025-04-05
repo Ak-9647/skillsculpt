@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Copy, Check } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Image from 'next/image';
 
 interface LinkedInProfileData {
   name: string | null;
@@ -44,7 +45,7 @@ export default function LinkedInDashboard() {
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
-    const handleLinkedInCallback = async (user: any) => {
+    const handleLinkedInCallback = async (user: User | null) => {
       // Check for error in URL params
       const linkedinError = searchParams.get('linkedin_error');
       if (linkedinError) {
@@ -102,9 +103,9 @@ export default function LinkedInDashboard() {
         url.searchParams.delete('linkedin_callback_state');
         window.history.replaceState({}, '', url.toString());
 
-      } catch (err) {
-        console.error('DEBUG: Error during LinkedIn association:', err);
-        setError(err instanceof Error ? err.message : 'Failed to connect LinkedIn account');
+      } catch (_err) {
+        console.error('DEBUG: Error during LinkedIn association:', _err);
+        setError(_err instanceof Error ? _err.message : 'Failed to connect LinkedIn account');
         toast.error('Failed to connect LinkedIn account');
       } finally {
         setIsLoading(false);
@@ -253,10 +254,12 @@ export default function LinkedInDashboard() {
           <CardHeader>
             <div className="flex items-center space-x-4">
               {profileData.pictureUrl && (
-                <img
+                <Image
                   src={profileData.pictureUrl}
                   alt={`${profileData.name}'s profile`}
-                  className="w-16 h-16 rounded-full"
+                  width={64}
+                  height={64}
+                  className="rounded-full"
                 />
               )}
               <div>

@@ -145,14 +145,14 @@ export async function GET(request: Request) {
         .collection('linkedinAuth').doc('tokenData')
         .set(tokenDataForFirestore);
       console.log('DEBUG: Successfully saved token to Firestore');
-    } catch (firestoreError) {
+    } catch (error) {
       console.error('DEBUG: Firestore write error:', {
-        error: firestoreError,
-        message: firestoreError instanceof Error ? firestoreError.message : 'Unknown error',
-        code: (firestoreError as any)?.code,
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        code: error instanceof Error && 'code' in error ? error.code : undefined,
         path: `users/${userId}/linkedinAuth/tokenData`
       });
-      throw firestoreError;
+      throw error;
     }
 
     // Create the response with redirect

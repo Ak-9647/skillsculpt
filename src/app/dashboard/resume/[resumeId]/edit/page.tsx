@@ -228,13 +228,12 @@ export default function EditResumePage() {
     };
 
     fetchResumeData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeId, router]);
 
 
   // Update editedName from resumeData if resumeData loads/changes
   useEffect(() => {
-    if (resumeData && !editedName) { // Only set initially or if cleared
+    if (resumeData && !editedName) {
       setEditedName(resumeData.resumeName);
     }
   }, [resumeData, editedName]);
