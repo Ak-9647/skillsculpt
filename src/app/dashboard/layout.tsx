@@ -40,7 +40,16 @@ export default function DashboardLayout({
           >
             Resume Builder
           </Link>
-          {/* Add more navigation items here */}
+          <Link 
+            href="/dashboard/linkedin" 
+            className={`block px-4 py-2 rounded-lg transition-colors ${
+              isActive('/dashboard/linkedin')
+                ? 'bg-gray-200 text-gray-900'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            LinkedIn Profile
+          </Link>
         </nav>
       </aside>
 
