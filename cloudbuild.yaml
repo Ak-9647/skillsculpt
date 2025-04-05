@@ -35,6 +35,8 @@ steps:
       - 'NEXT_PUBLIC_ENHANCE_FUNCTION_URL=https://enhance-resume-text-sirxstvtva-uc.a.run.app'
       - '--build-arg'
       - 'NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=https://suggest-resume-skills-sirxstvtva-uc.a.run.app'
+      - '--build-arg'
+      - 'GOOGLE_CLOUD_PROJECT_ID=$PROJECT_ID'
       # --- End Build Args ---
       - '--tag'
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'

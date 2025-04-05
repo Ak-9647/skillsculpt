@@ -23,6 +23,7 @@
   # --- Add ARG declarations for build arguments ---
   ARG NEXT_PUBLIC_ENHANCE_FUNCTION_URL
   ARG NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL
+  ARG GOOGLE_CLOUD_PROJECT_ID
   # --- End ARG declarations ---
   
   COPY --from=deps /app/node_modules ./node_modules
@@ -55,6 +56,7 @@
     # --- Append Build Args to .env.production ---
     echo "NEXT_PUBLIC_ENHANCE_FUNCTION_URL=${NEXT_PUBLIC_ENHANCE_FUNCTION_URL}" >> .env.production && \
     echo "NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=${NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL}" >> .env.production && \
+    echo "GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}" >> .env.production && \
     # --- End Appended Lines ---
     \
     echo "--- Created .env.production ---" && \
