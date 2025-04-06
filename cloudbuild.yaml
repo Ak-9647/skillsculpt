@@ -17,6 +17,8 @@ steps:
         echo "$$FIREBASE_APP_ID" > /workspace/FIREBASE_APP_ID_FILE
         echo "$$FIREBASE_CLIENT_EMAIL" > /workspace/FIREBASE_CLIENT_EMAIL_FILE
         echo "$$FIREBASE_PRIVATE_KEY" > /workspace/FIREBASE_PRIVATE_KEY_FILE
+        echo "$$LINKEDIN_CLIENT_ID" > /workspace/LINKEDIN_CLIENT_ID_FILE
+        echo "$$LINKEDIN_REDIRECT_URI" > /workspace/LINKEDIN_REDIRECT_URI_FILE
         echo "Done creating secret files."
     secretEnv:
       - 'FIREBASE_API_KEY'
@@ -27,6 +29,8 @@ steps:
       - 'FIREBASE_APP_ID'
       - 'FIREBASE_CLIENT_EMAIL'
       - 'FIREBASE_PRIVATE_KEY'
+      - 'LINKEDIN_CLIENT_ID'
+      - 'LINKEDIN_REDIRECT_URI'
 
   # Step 1: Build the Frontend Docker image (Pass URLs as Build Args)
   - name: 'gcr.io/cloud-builders/docker'
@@ -41,6 +45,10 @@ steps:
       - 'NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL=https://suggest-resume-skills-sirxstvtva-uc.a.run.app'
       - '--build-arg'
       - 'GOOGLE_CLOUD_PROJECT_ID=$PROJECT_ID'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_LINKEDIN_CLIENT_ID=$LINKEDIN_CLIENT_ID'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_LINKEDIN_REDIRECT_URI=$LINKEDIN_REDIRECT_URI'
       # --- End Build Args ---
       - '--tag'
       - '${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
@@ -142,6 +150,10 @@ availableSecrets:
       env: 'FIREBASE_CLIENT_EMAIL'
     - versionName: projects/car-magic-454906/secrets/FIREBASE_PRIVATE_KEY/versions/latest
       env: 'FIREBASE_PRIVATE_KEY'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_LINKEDIN_CLIENT_ID/versions/latest
+      env: 'LINKEDIN_CLIENT_ID'
+    - versionName: projects/car-magic-454906/secrets/NEXT_PUBLIC_LINKEDIN_REDIRECT_URI/versions/latest
+      env: 'LINKEDIN_REDIRECT_URI'
 
 # substitutions section
 substitutions:

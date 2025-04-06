@@ -24,6 +24,8 @@
   ARG NEXT_PUBLIC_ENHANCE_FUNCTION_URL
   ARG NEXT_PUBLIC_SUGGEST_SKILLS_FUNCTION_URL
   ARG GOOGLE_CLOUD_PROJECT_ID
+  ARG NEXT_PUBLIC_LINKEDIN_CLIENT_ID
+  ARG NEXT_PUBLIC_LINKEDIN_REDIRECT_URI
   # --- End ARG declarations ---
   
   COPY --from=deps /app/node_modules ./node_modules
@@ -37,6 +39,8 @@
   COPY FIREBASE_APP_ID_FILE /secrets/
   COPY FIREBASE_CLIENT_EMAIL_FILE /secrets/
   COPY FIREBASE_PRIVATE_KEY_FILE /secrets/
+  COPY LINKEDIN_CLIENT_ID_FILE /secrets/
+  COPY LINKEDIN_REDIRECT_URI_FILE /secrets/
   
   # Modified RUN step: Create .env.production from secrets AND build args
   RUN \
@@ -50,6 +54,8 @@
     APP_ID=$(cat /secrets/FIREBASE_APP_ID_FILE || true) && \
     CLIENT_EMAIL=$(cat /secrets/FIREBASE_CLIENT_EMAIL_FILE || true) && \
     PRIVATE_KEY=$(cat /secrets/FIREBASE_PRIVATE_KEY_FILE || true) && \
+    LINKEDIN_CLIENT_ID=$(cat /secrets/LINKEDIN_CLIENT_ID_FILE || true) && \
+    LINKEDIN_REDIRECT_URI=$(cat /secrets/LINKEDIN_REDIRECT_URI_FILE || true) && \
     \
     echo "NEXT_PUBLIC_FIREBASE_API_KEY=${API_KEY}" > .env.production && \
     echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${AUTH_DOMAIN}" >> .env.production && \
@@ -63,6 +69,8 @@
     echo "FIREBASE_PROJECT_ID=${PROJECT_ID}" >> .env.production && \
     echo "FIREBASE_CLIENT_EMAIL=${CLIENT_EMAIL}" >> .env.production && \
     echo "FIREBASE_PRIVATE_KEY=${PRIVATE_KEY}" >> .env.production && \
+    echo "NEXT_PUBLIC_LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}" >> .env.production && \
+    echo "NEXT_PUBLIC_LINKEDIN_REDIRECT_URI=${LINKEDIN_REDIRECT_URI}" >> .env.production && \
     \
     echo "--- Created .env.production ---" && \
     cat .env.production && \
